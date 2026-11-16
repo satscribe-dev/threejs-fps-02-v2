@@ -157,8 +157,8 @@ const vmRifle = buildRifle({ skin: true }); // CELAH 1 + SKIN: skin hanya di vie
 // Butt (1083,665) kini masuk frame (baseline 1275,736 terpotong tepi) —
 // dicek di combat shot R1: kalau massa stock masih terlalu gede, dorong
 // y lebih negatif di R2.
-vmRifle.group.position.set(0.36, -0.26, -0.90);
-vmRifle.group.rotation.set(0.30, -2.60, 0);
+vmRifle.group.position.set(0.42, -0.30, -0.85); // POPOR R1: kanan +0.06, bawah -0.04, maju +0.05 — popor keluar frame bawah/kanan (Kilnyard: senapan ke-crop di pojok, cuma laras + tangan yang kelihatan)
+vmRifle.group.rotation.set(0.38, -2.60, 0); // POPOR R1: pitch 0.30->0.38 — moncong naik ke arah crosshair, popor turun makin keluar
 vmRifle.group.scale.setScalar(0.85);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)

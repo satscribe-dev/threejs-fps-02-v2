@@ -428,7 +428,11 @@ export class Game {
       // (670,390)) — titik awal tracer ikut pindah: (0.133,1.380,10.120)
       // unproject ke (703,431) di 1,9 m (probe-verifikasi /tmp/vmprobe.mjs —
       // metode yang sama menghasilkan nilai baseline lama persis).
-      this.spawnTracer(new THREE.Vector3(0.133, 1.380, 10.120), new THREE.Vector3(-2.5, 1.35, 5));
+      // POPOR R1 (16 Nov): VM geser kanan+bawah (moncong kini (741,440))
+      // — titik awal tracer ikut pindah: (0.277,1.350,10.140) unproject
+      // ke (741,440) di 1,9 m (metode sama, validasi nilai lama persis
+      // di /tmp/tracer-recompute.mjs).
+      this.spawnTracer(new THREE.Vector3(0.277, 1.350, 10.140), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';
