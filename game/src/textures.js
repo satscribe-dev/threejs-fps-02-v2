@@ -403,3 +403,95 @@ export function nameTagTex(name, color = '#e8e0cc') {
   g.fillText(name, 128, 44);
   return tex(c);
 }
+
+// ---- rifle skin "EMBER SPLINTER": CS-style splinter camo for the Longshot AR ----
+// Procedural only (Canvas2D, seeded). The canvas is 1 m x 1 m: chamferBox
+// (ExtrudeGeometry) UVs are raw metres, so one canvas tile = 1 m of rifle.
+// Design: warm desert-tan base (reads in dusk, not black), big angular
+// olive + charcoal shards, ONE strong accent — burnt orange — as shards and
+// two diagonal stripes that cross any slice of the texture. Shards are large
+// (12-25 cm) so the narrow side-wall strip of the receiver (6 cm wide)
+// still shows 1-2 colour fields instead of confetti. Every shard is drawn
+// 9x with +/-512 offsets so the pattern tiles seamlessly.
+// Applied ONLY to the viewmodel rifle (receiver + handguard + stock); the
+// barrel, bolt, rail, sights and magazine stay metal/polymer — the
+// metal-vs-skin contrast is what makes a skin read as a skin.
+export function rifleSkinTex(seed = 31) {
+  const [c, g] = canvas(512, 512);
+  const rng = mulberry32(seed);
+  // base: warm desert tan, slightly varied in three horizontal bands so the
+  // long side of the receiver fades along the barrel instead of one flat tone
+  // R2: base lebih GELAP + kurang jenuh (was #a8906a/#9a825e/#a88a64 — di R1
+  // base terang + lampu VM yang hangat bikin receiver jadi SALMON terang,
+  // kelihatan mainan). Olive-tan yang lebih gelap tetap kebaca di dusk
+  // tanpa jadi tabung oranye.
+  const bandCols = ['#8a7a58', '#7d6f50', '#857654'];
+  for (let b = 0; b < 3; b++) {
+    g.fillStyle = bandCols[b];
+    g.fillRect(0, b * 171, 512, 171);
+  }
+  // soft large blotches on the base (breaks the band edges)
+  for (let i = 0; i < 12; i++) {
+    const x = rng() * 512, y = rng() * 512, r = 50 + rng() * 70;
+    const grd = g.createRadialGradient(x, y, 2, x, y, r);
+    const col = rng() > 0.5 ? 'rgba(140,120,88,0.35)' : 'rgba(180,160,120,0.30)';
+    grd.addColorStop(0, col);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  // angular shards: olive, charcoal, then orange accent (fewer, but bigger)
+  // R3: shard TINGGI-SEMPIT di canvas (rx 25-60 px, ry 100-220 px) — karena
+  // skinUVs memetakan tekstur penuh ke tiap bagian, receiver (0,32 m x
+  // 0,062 m) meregangkan tekstur ~5:1 sepanjang laras; shard yang di
+  // canvas tinggi-sempit jadi tambalan angular normal di dunia (shard
+  // bujur sangkar di canvas akan jadi garis tipis 5:1). Tanpa skinUVs,
+  // strip 19 px ini cuma lotre — R1 mendarat di tan+oranye (salmon),
+  // R2 mendarat di charcoal (hampir hitam).
+  function shard(cx, cy, rx, ry, col) {
+    const n = 5 + Math.floor(rng() * 3);
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.5;
+      pts.push([cx + Math.cos(a) * rx * (0.6 + rng() * 0.6), cy + Math.sin(a) * ry * (0.6 + rng() * 0.6)]);
+    }
+    // draw 9x with wraparound offsets so the tile is seamless
+    for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) {
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(pts[0][0] + ox, pts[0][1] + oy);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0] + ox, pts[i][1] + oy);
+      g.closePath(); g.fill();
+    }
+  }
+  for (let i = 0; i < 16; i++) shard(rng() * 512, rng() * 512, 25 + rng() * 35, 100 + rng() * 120, '#5a5a38'); // olive
+  for (let i = 0; i < 16; i++) shard(rng() * 512, rng() * 512, 22 + rng() * 32, 90 + rng() * 110, '#2a2724'); // charcoal
+  for (let i = 0; i < 3; i++) shard(rng() * 512, rng() * 512, 20 + rng() * 20, 70 + rng() * 60, '#ff6a2a'); // orange accent
+  // ONE thin diagonal accent stripe (burnt orange): it crosses every slice
+  // of the texture, so the receiver + handguard always carry an orange line.
+  // R2: SATU garis tipis (was 2 garis 20+10 px — di R1 garis tebal + shard
+  // oranye bikin receiver jadi tabung salmon). Aksen harus GARIS, bukan banjir.
+  function stripe(y0, w, col) {
+    g.strokeStyle = col;
+    g.lineWidth = w;
+    g.beginPath();
+    g.moveTo(-40, y0);
+    g.lineTo(552, y0 + 300);
+    g.stroke();
+  }
+  stripe(120, 8, 'rgba(255,106,42,0.8)');
+  // wear: thin light scratches + a few dark scuffs (a skin that is too
+  // clean reads as a toy; a skin that is too worn reads as dirt)
+  for (let i = 0; i < 46; i++) {
+    const x = rng() * 512, y = rng() * 512, len = 8 + rng() * 40, a = rng() * Math.PI;
+    g.strokeStyle = rng() > 0.4 ? 'rgba(235,225,205,0.28)' : 'rgba(30,26,22,0.30)';
+    g.lineWidth = 1 + rng() * 1.5;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+    g.stroke();
+  }
+  const t = tex(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}

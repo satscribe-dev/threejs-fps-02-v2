@@ -114,7 +114,7 @@ vmScene.add(vmFill);
 const vmCamFill = new THREE.DirectionalLight(0xfff2e0, 0.55);
 vmCamFill.position.set(0.2, 0.3, 0.9);
 vmScene.add(vmCamFill);
-const vmRifle = buildRifle();
+const vmRifle = buildRifle({ skin: true }); // CELAH 1 + SKIN: skin hanya di viewmodel (musuh tetap polos)
 // FIX ROUND (16 Nov): VM was ~35% of frame width. Moved farther (z -1.0->-1.3),
 // right (x 0.36->0.44) and down (y -0.33->-0.38) so the visible rifle is
 // <=25% wide with the stock cropped by the bottom edge, like Kilnyard-0.
@@ -136,8 +136,23 @@ const vmRifle = buildRifle();
 // rotX 0.20 -> 0.30: moving closer flattened the screen angle 28.2 -> 25.8 deg;
 // 0.30 restores 29.7 deg (CS 29.1 deg). Probe-verified (node, vmCamera 54 FOV).
 // Grip contact unchanged (hands are children of the rifle; probe dR/dL same).
-vmRifle.group.position.set(0.338, -0.203, -0.70);
+// CELAH 1 (16 Nov): senapan TERLALU GEDE di frame — bbox 605x350 px (47%
+// lebar frame), receiver blok gede kanan bawah, scene kalah. Kilnyard-0:
+// senapan ramping di pojok kanan bawah, scene yang jadi bintang. Perbaikan:
+// senapan dijauhkan (z -0.70 -> -0.90) + ke kanan/bawah (x 0.338 -> 0.36,
+// y -0.203 -> -0.26) + DIKECILKAN (scale 0.85). Probe numerik (node,
+// vmCamera FOV 54 — /tmp/vmprobe.mjs): bbox 380x234 px (30% lebar frame,
+// dari 47%), muzzle (703,431) 95 px dari crosshair (baseline 42 px —
+// Kilnyard-0 moncongnya ~230 px dari crosshair, jadi 95 px masih dekat),
+// handL (813,522) tetap di tengah-bawah frame, handR (1029,635) tetap
+// kebaca. Tangan + lengan anak dari grup senapan, jadi probe grip
+// (rifle-local) TIDAK BERUBAH — diverifikasi ulang di harness vmc1.
+// Butt (1083,665) kini masuk frame (baseline 1275,736 terpotong tepi) —
+// dicek di combat shot R1: kalau massa stock masih terlalu gede, dorong
+// y lebih negatif di R2.
+vmRifle.group.position.set(0.36, -0.26, -0.90);
 vmRifle.group.rotation.set(0.30, -2.60, 0);
+vmRifle.group.scale.setScalar(0.85);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
 // FIX HAND (16 Nov): the trigger hand DANGLLED below the pistol grip and the

@@ -411,7 +411,11 @@ export class Game {
       // so the start point moves again: (0.005,1.539,10.102) unprojects to
       // (670,390) at 1.9 m (probe-verified). The tracer runs from the muzzle
       // to e1 — longer than the 205 px staging version.
-      this.spawnTracer(new THREE.Vector3(0.005, 1.539, 10.102), new THREE.Vector3(-2.5, 1.35, 5));
+      // CELAH 1 (16 Nov): VM pindah (moncong kini (703,431), bukan
+      // (670,390)) — titik awal tracer ikut pindah: (0.133,1.380,10.120)
+      // unproject ke (703,431) di 1,9 m (probe-verifikasi /tmp/vmprobe.mjs —
+      // metode yang sama menghasilkan nilai baseline lama persis).
+      this.spawnTracer(new THREE.Vector3(0.133, 1.380, 10.120), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';

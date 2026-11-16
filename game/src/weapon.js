@@ -2,7 +2,41 @@
 // muzzle flash (petal star), tracers and smoke. All measurements in metres.
 import * as THREE from 'three';
 import { chamferBox, box, lathe, capsule, ball } from './geom.js';
-import { flashTex, smokeTex } from './textures.js';
+import { flashTex, smokeTex, rifleSkinTex } from './textures.js';
+
+// CELAH 1 + SKIN (16 Nov): "EMBER SPLINTER" — skin prosedural buat viewmodel
+// SAJA (musuh tetap polos: buildRifle() tanpa opts.skin). Satu material
+// dipakai keempat bagian yang di-skin (receiver + handguard + butt +
+// cheek) supaya polanya nyambung; tekstur dibuat sekali (lazy) dan dipakai
+// ulang. Barrel/bolt/rail/mag tetap metal/polymer — kontras metal vs skin
+// yang bikin skin kebaca, bukan skin di semua bagian.
+let _skinMat = null;
+function skinMat() {
+  if (!_skinMat) {
+    _skinMat = new THREE.MeshStandardMaterial({ map: rifleSkinTex(), roughness: 0.6, metalness: 0.15 });
+  }
+  return _skinMat;
+}
+
+// R3: remap UV supaya tekstur skin mencakup SELURUH bagian (bukan slice
+// acak). ExtrudeGeometry UV-nya mentah dalam meter — receiver (0,32 m)
+// cuma menampilkan strip 6 cm dari tekstur 1 m, jadi R1/R2 itu lotre
+// (R1: tan+oranye = salmon; R2: charcoal = hampir hitam). Di sini u <-
+// panjang lokal (z) dan v <- tinggi lokal (y), keduanya 0..1 di bounding
+// box geometri — sisi +X (yang menghadap kamera VM) menampilkan pola
+// lengkap. Hanya dipakai di bagian ber-skin; material polos tidak pakai UV.
+function skinUVs(mesh) {
+  const geo = mesh.geometry;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  const sz = (bb.max.z - bb.min.z) || 1, sy = (bb.max.y - bb.min.y) || 1;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getZ(i) - bb.min.z) / sz, (pos.getY(i) - bb.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+  return mesh;
+}
 
 export const MAT = {
   steel: new THREE.MeshStandardMaterial({ color: 0x4b4f53, metalness: 0.9, roughness: 0.38 }),
@@ -30,16 +64,20 @@ export const MAT = {
 
 // Rifle, forward = +Z, muzzle at z ~ +0.48. Origin at the receiver centre, y = bore line.
 // Returns { group, muzzle (Object3D), gripSocket, supportSocket, ejectSocket, parts }.
+// opts.skin: pakai skin "EMBER SPLINTER" di receiver + handguard + stock
+// (hanya viewmodel — musuh memanggil buildRifle() tanpa skin, tetap polos).
 export function buildRifle(opts = {}) {
   const g = new THREE.Group();
   const parts = [];
   const add = (m, x = 0, y = 0, z = 0) => { m.position.set(x, y, z); g.add(m); parts.push(m); return m; };
+  const skin = opts.skin ? skinMat() : null;
 
   // 1. receiver — extruded rounded slab (the body everything hangs from)
   // FIX VM-LOOK (16 Nov): was 0.055 x 0.075 — a fat black slab that merged
   // with the handguard into one black log on screen. Slimmed to 0.048 x 0.062
   // (CS proportions) so the magazine, rail and trigger break the silhouette.
-  const receiver = chamferBox(0.048, 0.062, 0.32, 0.012, MAT.receiver);
+  const receiver = chamferBox(0.048, 0.062, 0.32, 0.012, skin ?? MAT.receiver);
+  if (skin) skinUVs(receiver);
   add(receiver, 0, 0, 0);
   // 2. barrel — lathe, stepped profile
   const barrel = lathe([[0.011, 0], [0.011, 0.16], [0.008, 0.17], [0.008, 0.30], [0.010, 0.31], [0.010, 0.33]], MAT.steelDark);
@@ -48,7 +86,8 @@ export function buildRifle(opts = {}) {
   // 3. handguard — chamfered box with vent slots (slots as thin dark insets)
   // FIX VM-LOOK: was 0.062 x 0.062 (chunkier than the receiver — the main
   // "black log" mass). Slimmed to 0.050 x 0.050, slimmer than the receiver.
-  const hg = chamferBox(0.050, 0.050, 0.22, 0.01, MAT.polymer);
+  const hg = chamferBox(0.050, 0.050, 0.22, 0.01, skin ?? MAT.polymer);
+  if (skin) skinUVs(hg);
   add(hg, 0, 0.008, 0.26);
   for (let i = 0; i < 4; i++) {
     add(box(0.052, 0.010, 0.02, MAT.steelDark), 0, 0.02, 0.19 + i * 0.045);
@@ -59,9 +98,11 @@ export function buildRifle(opts = {}) {
   const mag2 = chamferBox(0.038, 0.05, 0.07, 0.008, MAT.steelDark);
   mag2.rotation.x = 0.12; add(mag2, 0, -0.155, 0.035);
   // 5-7. stock: butt plate, cheek rest, buffer tube
-  const butt = chamferBox(0.045, 0.11, 0.03, 0.01, MAT.polymer);
+  const butt = chamferBox(0.045, 0.11, 0.03, 0.01, skin ?? MAT.polymer);
+  if (skin) skinUVs(butt);
   add(butt, 0, -0.01, -0.235);
-  const cheek = chamferBox(0.04, 0.035, 0.13, 0.008, MAT.wood);
+  const cheek = chamferBox(0.04, 0.035, 0.13, 0.008, skin ?? MAT.wood);
+  if (skin) skinUVs(cheek);
   add(cheek, 0, 0.028, -0.19);
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.13, 12), MAT.steel);
   tube.rotation.x = Math.PI / 2; add(tube, 0, 0.005, -0.17);
