@@ -64,7 +64,10 @@ export function buildRifle(opts = {}) {
   const grip = chamferBox(0.038, 0.10, 0.05, 0.012, MAT.polymer);
   grip.rotation.x = 0.35; add(grip, 0, -0.075, -0.085);
   // 9-10. trigger + guard
-  const trig = box(0.008, 0.035, 0.012, MAT.steelDark);
+  // FIX 9 POIN P2 R2: trigger blade silver (was steelDark near-black) — the
+  // black index finger ON a black trigger was invisible; a silver blade makes
+  // the finger-on-trigger read, and a real trigger is often a distinct finish.
+  const trig = box(0.008, 0.035, 0.012, MAT.bolt);
   trig.rotation.x = 0.2; add(trig, 0, -0.055, -0.045);
   const guard = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.005, 8, 16, Math.PI), MAT.steelDark);
   guard.rotation.set(0, Math.PI / 2, 0); guard.rotation.z = Math.PI;
@@ -136,7 +139,9 @@ export function buildRifle(opts = {}) {
 // ---- a hand: rounded palm, 4 three-segment curled fingers, thumb, cuff ----
 // The hand's local +Z is "forward" (direction the fingers point when flat);
 // fingers curl toward -Y (closing around a grip). Scale ~1 = adult hand.
-export function buildHand(glove = 0x17171a, skin = 0x8a6f56) {
+// opts.triggerFinger: the index finger stays nearly straight and angles
+// toward the trigger (firing pose) instead of curling around the grip.
+export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   const g = new THREE.Group();
   const gloveMat = new THREE.MeshStandardMaterial({ color: glove, metalness: 0, roughness: 0.85 });
   const skinMat = new THREE.MeshStandardMaterial({ color: skin, metalness: 0, roughness: 0.7 });
@@ -164,16 +169,27 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56) {
   // and the far-side fingers at the far edge, tips peeking over the rail.
   const fingerLen = [0.075, 0.085, 0.08, 0.06];
   const fingerX = [-0.038, -0.028, 0.028, 0.038];
+  // FIX 9 POIN P1 R5 (koreksi user 17:12 + ref CS Dust baru): jari di-STAGGER
+  // sepanjang handguard (index paling depan, kelingking paling belakang) —
+  // dari samping/3q, ke-4 jari ada di 4 titik berbeda sepanjang laras dan
+  // terbaca terpisah, bukan 2 pasang yang saling menumpuk. (Sebelumnya semua
+  // pivot di z yang sama, jadi dari samping jari menumpuk jadi satu massa.)
+  const fingerZ = [0.069, 0.060, 0.050, 0.041];
   const fingers = [];
   for (let f = 0; f < 4; f++) {
     const segs = [];
     let pivot = new THREE.Group();
-    pivot.position.set(fingerX[f], 0, 0.055);
+    pivot.position.set(fingerX[f], 0, fingerZ[f]);
     g.add(pivot);
     let parent = pivot;
-    const total = fingerLen[f];
+    // FIX 9 POIN P2: index finger (f==0) on the trigger when triggerFinger
+    // is set — nearly straight (curls 0.10/0.15/0.10) and angled toward the
+    // trigger blade (pivot rotation.y 0.79, rotation.x 0.68: computed from the
+    // hand pose so the tip lands on the trigger at rifle (0,-0.055,-0.045)).
+    // Length 0.085 (was 0.075) — the trigger is 0.086 m from the index base.
+    const total = f === 0 && opts.triggerFinger ? 0.085 : fingerLen[f];
     const lens = [total * 0.4, total * 0.3, total * 0.3];
-    const curls = [0.61, 0.96, 0.61]; // 35, 55, 35 degrees in radians
+    const curls = f === 0 && opts.triggerFinger ? [0.10, 0.15, 0.10] : [0.61, 0.96, 0.61]; // 35, 55, 35 degrees in radians
     for (let s = 0; s < 3; s++) {
       const seg = new THREE.Group();
       seg.position.set(0, 0, s === 0 ? 0 : lens[s - 1]);
@@ -185,7 +201,11 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56) {
       parent = seg;
     }
     // first segment curls from the knuckle
-    pivot.rotation.x = curls[0];
+    if (f === 0 && opts.triggerFinger) {
+      pivot.rotation.set(0.68, 0.79, 0);
+    } else {
+      pivot.rotation.x = curls[0];
+    }
     fingers.push({ pivot, segs });
   }
   // thumb: starts at the palm side near the wrist, points across the grip

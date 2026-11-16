@@ -149,7 +149,9 @@ vmScene.add(vmRifle.group);
 // hook. After the fix (same probe): trigger fingertips 0.000-0.007 m from the
 // grip surface, support fingertips 0.001-0.021 m from the foregrip, palms in
 // contact with the grip's back-left corner. Do NOT move the rifle itself.
-const vmHandR = buildHand(0x17171a); // FIX VM-LOOK: black glove (was 0x4a4438 cream) — CS focal point
+const vmHandR = buildHand(0x17171a, undefined, { triggerFinger: true }); // FIX VM-LOOK: black glove (was 0x4a4438 cream) — CS focal point
+// FIX 9 POIN P2: index finger on the trigger (firing pose — the staged
+// combat shot fires). The other 3 fingers stay curled around the grip.
 vmHandR.group.position.copy(vmRifle.gripSocket.position).add(new THREE.Vector3(-0.038, 0.034, -0.064));
 vmHandR.group.rotation.set(0.35, 0, Math.PI / 2);
 vmRifle.group.add(vmHandR.group);
