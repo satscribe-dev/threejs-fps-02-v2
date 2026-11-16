@@ -171,24 +171,31 @@ let _flashTex = null;
 export function makeFlash(scale = 0.15) {
   if (!_flashTex) _flashTex = flashTex();
   const group = new THREE.Group();
+  // Soft glow ball KEPT SMALLER/DIMMER than the star: in R4-R7 the ball
+  // (sprite 2.8x, opacity 0.95) swallowed the petals at 7 m and read as a
+  // white blob in full frame. The star must extend BEYOND the ball.
   const mat = new THREE.SpriteMaterial({
     map: _flashTex, transparent: true, depthWrite: false,
-    blending: THREE.AdditiveBlending, opacity: 0.95,
+    blending: THREE.AdditiveBlending, opacity: 0.7,
   });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(scale * 2.8, scale * 2.8, 1);
+  sprite.scale.set(scale * 2.0, scale * 2.0, 1);
   group.add(sprite);
-  // 8 kite petals: long even, short odd — the star points
+  // 8 kite petals: long even, short odd — the star points.
+  // FIX ROUND (16 Nov): petals 2x WIDER and LONGER than R7 (w 0.075r->0.15r,
+  // even len 0.55->0.75, odd 0.36->0.5) and r 2.8->3.2 so the rays stick out
+  // past the glow ball — at 7 m a 3px ray washes out in bloom+JPEG, a 10px
+  // ray survives.
   const petalMat = new THREE.MeshBasicMaterial({
     color: 0xffb050, transparent: true, opacity: 0.95,
     blending: THREE.AdditiveBlending, depthWrite: false,
     side: THREE.DoubleSide, fog: false,
   });
-  const r = scale * 2.8; // sprite half-size: petals span the same disc
+  const r = scale * 3.2; // petal span: wider than the glow disc
   for (let p = 0; p < 8; p++) {
     const a = (p / 8) * Math.PI * 2;
-    const len = (p % 2 === 0 ? 0.55 : 0.36) * r;
-    const w = 0.075 * r;
+    const len = (p % 2 === 0 ? 0.75 : 0.5) * r;
+    const w = 0.15 * r;
     const s = new THREE.Shape();
     s.moveTo(Math.cos(a - 0.3) * w, Math.sin(a - 0.3) * w);
     s.lineTo(Math.cos(a) * len, Math.sin(a) * len);
@@ -204,11 +211,15 @@ export function makeFlash(scale = 0.15) {
   return group;
 }
 
-// ---- tracer: thin bright line from muzzle toward the target ----
+// ---- tracer: bright line from muzzle toward the target ----
+// FIX ROUND (16 Nov): radius 0.004 was sub-pixel at 7 m (0.008 m dia ~ 0.5 px)
+// so the tracer was invisible in full frame. 0.012 (0.024 m dia ~ 1.5 px at
+// 7 m, ~4 px at 2 m) reads as a line without becoming the R1 wedge — both
+// ends stay >= 2 m from the camera, so a thicker line cannot fill the lens.
 export function makeTracer(from, to, opacity = 0.5) {
   const dir = new THREE.Vector3().subVectors(to, from);
   const len = dir.length();
-  const geo = new THREE.CylinderGeometry(0.004, 0.004, len, 6, 1, true);
+  const geo = new THREE.CylinderGeometry(0.012, 0.012, len, 6, 1, true);
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffe8b0, transparent: true, opacity,
     blending: THREE.AdditiveBlending, depthWrite: false,

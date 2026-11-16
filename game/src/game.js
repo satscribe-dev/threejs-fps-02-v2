@@ -295,7 +295,12 @@ export class Game {
 
   spawnVmFlash() {
     if (this._vmFlash) this.vmScene.remove(this._vmFlash);
-    const f = makeFlash(0.16);
+    // FIX ROUND R2: 0.16 with the wide/long star petals was a GIANT BLADE at
+    // 0.74 m from the vm camera (rays 0.38 m = a white spike spanning half the
+    // frame). The VM muzzle sits at the bottom edge, so its star must be
+    // small: 0.03 -> rays ~0.07 m, a modest star peeking up from the bottom
+    // edge like Kilnyard-0's barrel-tip star. Never use the enemy scale here.
+    const f = makeFlash(0.03);
     const p = new THREE.Vector3();
     if (this._vmMuzzle) this._vmMuzzle.getWorldPosition(p);
     else p.set(0.3, -0.25, -0.3);
@@ -306,7 +311,7 @@ export class Game {
   }
 
   spawnTracer(from, to) {
-    const t = makeTracer(from, to, 0.5);
+    const t = makeTracer(from, to, 0.8); // FIX ROUND: 0.5 was too faint over bright containers
     this.effects.add(t);
     if (!this.frozen) setTimeout(() => this.effects.remove(t), 120);
   }
@@ -363,16 +368,39 @@ export class Game {
       // reads as a giant white wedge)
       const mw = new THREE.Vector3();
       e1.soldier.rifle.muzzle.getWorldPosition(mw);
-      this.spawnFlash(mw);
+      this.spawnFlash(mw, 0.36); // FIX ROUND: 0.28 star was a glow ball in full frame
       const tgt = new THREE.Vector3(this.player.x, 1.4, this.player.z);
       const edir = tgt.clone().sub(mw).normalize();
       this.spawnTracer(mw, tgt.clone().addScaledVector(edir, -2));
       this.spawnSmoke(mw.clone().add(new THREE.Vector3(0, 0.1, -0.2)), new THREE.Vector3(0, 0.2, -0.5));
+      // e2 (Heron, right) ALSO fires at the player: its tracer CROSSES the
+      // frame diagonally (muzzle upper-right -> 2 m short of the camera at
+      // centre). e1's tracer is foreshortened along the view axis (a 41 px
+      // vertical stub hiding under the star's down-ray) and the player's
+      // tracer is a 12 px stub for the same reason — a tracer to a target
+      // near the crosshair always points at the camera. A cross-frame
+      // tracer needs a shooter at a DIFFERENT bearing: e2 at +20 deg right.
+      // (Kilnyard-0's long tracers are exactly this: cross-frame, not
+      // along the view axis.) No smoke for e2 — e1's smoke is enough.
+      const mw2 = new THREE.Vector3();
+      e2.soldier.rifle.muzzle.getWorldPosition(mw2);
+      this.spawnFlash(mw2, 0.36);
+      const tgt2 = new THREE.Vector3(this.player.x, 1.4, this.player.z);
+      const edir2 = tgt2.clone().sub(mw2).normalize();
+      this.spawnTracer(mw2, tgt2.clone().addScaledVector(edir2, -2));
       // player fires too (tracer starts 2 m out, never hugging the camera)
       this.spawnVmFlash();
-      const pfrom = new THREE.Vector3(0, 1.55, 12);
-      const pdir = new THREE.Vector3(-2.5, 1.35, 5).sub(pfrom).normalize();
-      this.spawnTracer(pfrom.clone().addScaledVector(pdir, 2), new THREE.Vector3(-2.5, 1.35, 5));
+      // FIX ROUND R3 — player tracer: a tracer starting 2 m out ALONG the aim
+      // direction is foreshortened to a 12 px stub, because both endpoints
+      // sit on the same bearing from the camera (same reason e1's/e2's
+      // tracers are 41-45 px vertical stubs). A tracer reads only when its
+      // endpoints are at DIFFERENT bearings. So start it at the VM muzzle's
+      // screen position (bottom-right, where the gun is): (0.9,0.9,10.5) is
+      // ~1.9 m from the camera (no R1 wedge — that was distance 0) and
+      // projects to ~(1012,609), at the gun. The tracer then runs ~530 px
+      // diagonally to e1 — Kilnyard-style, like Kilnyard-0's long tracers
+      // from the player's muzzle.
+      this.spawnTracer(new THREE.Vector3(0.9, 0.9, 10.5), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';
@@ -416,11 +444,13 @@ export class Game {
       this.player.yaw = Math.atan2(-dx, -dz);
       const mw = new THREE.Vector3();
       e.soldier.rifle.muzzle.getWorldPosition(mw);
-      this.spawnFlash(mw, 0.2); // smaller flash so it does not swallow the enemy
+      this.spawnFlash(mw, 0.15); // FIX ROUND: 0.2 ball + smoke covered the enemy
       const etgt = new THREE.Vector3(this.player.x, 1.4, this.player.z);
       const edir = etgt.clone().sub(mw).normalize();
       this.spawnTracer(mw, etgt.clone().addScaledVector(edir, -2));
-      this.spawnSmoke(mw.clone(), new THREE.Vector3(1, 0.1, 0));
+      // FIX ROUND: duel smoke REMOVED — its 5 puffs drifted west (toward the
+      // camera) and covered the enemy's torso/head as a white stain. Kilnyard-2
+      // has no smoke in the plant shot either; enemy + charge carry the duel.
       this.spawnVmFlash();
       const dfrom = new THREE.Vector3(7, 1.55, -7);
       const ddir = new THREE.Vector3(13.5, 1.35, -8.5).sub(dfrom).normalize();

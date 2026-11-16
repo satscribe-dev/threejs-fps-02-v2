@@ -108,7 +108,10 @@ const vmFill = new THREE.DirectionalLight(0xfff0d0, 0.7);
 vmFill.position.set(-0.5, 0.2, -0.8);
 vmScene.add(vmFill);
 const vmRifle = buildRifle();
-vmRifle.group.position.set(0.36, -0.33, -1.0);
+// FIX ROUND (16 Nov): VM was ~35% of frame width. Moved farther (z -1.0->-1.3),
+// right (x 0.36->0.44) and down (y -0.33->-0.38) so the visible rifle is
+// <=25% wide with the stock cropped by the bottom edge, like Kilnyard-0.
+vmRifle.group.position.set(0.44, -0.38, -1.3);
 vmRifle.group.rotation.set(0.12, -0.03, 0.02);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
