@@ -12,7 +12,12 @@ export const MAT = {
   // Lower metalness lets the VM lights lift the side face to dark grey.
   receiver: new THREE.MeshStandardMaterial({ color: 0x565a5e, metalness: 0.55, roughness: 0.5 }),
   bolt: new THREE.MeshStandardMaterial({ color: 0x9a9da0, metalness: 0.9, roughness: 0.3 }),
-  polymer: new THREE.MeshStandardMaterial({ color: 0x38322c, metalness: 0.0, roughness: 0.8 }),
+  polymer: new THREE.MeshStandardMaterial({ color: 0x6b5d4f, metalness: 0.0, roughness: 0.8 }),
+  // FIX 9 POIN P1 R4: polymer 0x38322c -> 0x6b5d4f (coklat-abu medium). Sarung
+  // hitam di atas polymer gelap = nol kontras, jari menyatu jadi massa gelap.
+  // Referensi CS: sarung hitam terbaca karena handguard TERANG. Ini bukan
+  // copy warna CS (bukan tan/FDE) — medium warm grey, senapan tetap two-tone
+  // gunmetal + polymer, bentuk/detail kita sendiri. Membantu poin 1 + 2.
   wood: new THREE.MeshStandardMaterial({ color: 0x5e3d22, metalness: 0.0, roughness: 0.7 }),
   brass: new THREE.MeshStandardMaterial({ color: 0x8a6d3b, metalness: 0.9, roughness: 0.35 }),
   lens: new THREE.MeshStandardMaterial({ color: 0x2a3a48, metalness: 0.4, roughness: 0.15, envMapIntensity: 1.4 }),
@@ -142,13 +147,23 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56) {
   // Finger LENGTHS and curls are unchanged, so the fingertip positions (and
   // the grip contact the probe verifies) do not move.
   const palm = ball(0.052, gloveMat);
-  palm.scale.set(1.05, 0.45, 1.25);
+  palm.scale.set(0.95, 0.36, 1.35);
+  // FIX 9 POIN P1 R2: palm flatter (was 1.05, 0.45, 1.25) — round 1 it read as
+  // a ball under the handguard; a flatter, longer palm hugs the handguard
+  // bottom and reads as a hand, not a mitten. (Shared by VM + enemy hands.)
   palm.position.set(0, 0, 0.01);
   g.add(palm);
   // 4 fingers: 3 capsule segments each, curling 35/55/35 degrees.
   // Lengths taper: index 0.075, middle 0.085, ring 0.08, pinky 0.06 (segment ratio 40/30/30).
+  // FIX 9 POIN P1 R3: spread the finger bases WIDE (was -0.030..0.029) so the
+  // fingertips land OUTSIDE the handguard box (|x| 0.025..0.045) instead of
+  // clipping through it. Round 2's fan (pivot.rotation.y) was the wrong
+  // mechanism — the tip sits almost above the pivot (z-offset 0.013), so the
+  // fan barely moved the tips and pushed the index 2.9 cm off the surface.
+  // The spread puts the near-side fingers on the camera side of the handguard
+  // and the far-side fingers at the far edge, tips peeking over the rail.
   const fingerLen = [0.075, 0.085, 0.08, 0.06];
-  const fingerX = [-0.030, -0.010, 0.011, 0.029];
+  const fingerX = [-0.038, -0.028, 0.028, 0.038];
   const fingers = [];
   for (let f = 0; f < 4; f++) {
     const segs = [];
@@ -204,7 +219,7 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56) {
 // petals washed into a ball in every round (R4-R6). Quads keep full opacity
 // and hard points, so they read at distance.
 let _flashTex = null;
-export function makeFlash(scale = 0.15) {
+export function makeFlash(scale = 0.15, lightIntensity = 10) {
   if (!_flashTex) _flashTex = flashTex();
   const group = new THREE.Group();
   // Soft glow ball KEPT SMALLER/DIMMER than the star: in R4-R7 the ball
@@ -242,7 +257,7 @@ export function makeFlash(scale = 0.15) {
     m.position.z = 0.002;
     group.add(m);
   }
-  const light = new THREE.PointLight(0xffc060, 10, 5, 2);
+  const light = new THREE.PointLight(0xffc060, lightIntensity, 5, 2);
   group.add(light);
   return group;
 }

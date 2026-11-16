@@ -154,18 +154,23 @@ vmHandR.group.position.copy(vmRifle.gripSocket.position).add(new THREE.Vector3(-
 vmHandR.group.rotation.set(0.35, 0, Math.PI / 2);
 vmRifle.group.add(vmHandR.group);
 const vmHandL = buildHand(0x17171a); // FIX VM-LOOK: black glove (was 0x4a4438 cream)
-// FIX HANDGUARD (16 Nov, referensi CS user 13:36 WIB): tangan support HARUS
-// menggenggam HANDGUARD seperti referensi — jari melengkung KE ATAS melewati
-// rel atas, jempol di sisi samping. Bukan di foregrip vertikal (pose lama:
-// jari melayang 0.06-0.08 m di belakang foregrip). Handguard itu bar horizontal,
-// jadi bidang curl jari harus vertikal melintang sumbu laras: R = Rx(-90deg) *
-// Rz(-90deg) -> jari menunjuk ke ATAS, melengkung ke sisi kiri melewati rel.
-// Probe-verified: ujung jari 0.012-0.018 m DI ATAS rel atas (kelihatan di atas
-// rel, seperti referensi), telapak menempel di sisi kanan handguard (d=0.019 m).
-// Posisi langsung di handguard (bukan supportSocket foregrip); foregrip tetap
-// ada sebagai prop, kosong.
-vmHandL.group.position.set(0.05, -0.02, 0.27);
-vmHandL.group.rotation.set(-Math.PI / 2, 0, -Math.PI / 2);
+// FIX 9 POIN P1 (16 Nov): tangan support HARUS di BAWAH handguard, telapak
+// menghadap ATAS menopang handguard — bukan tegak di atas rel seperti tiang.
+// Posisi (x -0.008, y -0.040, z 0.22): pergelangan di bawah handguard
+// (permukaan bawah y -0.017; telapak atas -0.040+0.023 = -0.017 = menempel),
+// 30,5 cm di depan pistol grip (z -0.085 -> 0.22, target 25-35 cm).
+// Rotasi Rz(180deg): telapak (hand-local -Y) -> +Y (menghadap atas), jari
+// (hand-local +Z) -> +Z (maju), curl ke ATAS melewati rel; jempol pindah ke
+// sisi +X (kamera). Manset tetap ke -Z (ke arah penembak).
+vmHandL.group.position.set(0.005, -0.036, 0.22);
+// R3: x +0.012 -> +0.005 (spread jari sudah menaruh ujung di luar box;
+// geser besar bikin jari jauh mengambang). y -0.036 tetap.
+// R2: y -0.040 -> -0.036 karena telapak dipipihkan (0.36): telapak atas
+// -0.036+0.019 = -0.017 = menempel permukaan bawah handguard.
+// R2: geser +0.02 ke sisi kamera (+X) supaya jari sisi dekat berada DI LUAR
+// handguard (round 1: jari tengah di dalam box, tak terlihat). Jari sisi jauh
+// tetap di dalam/tersembunyi di balik handguard — benar secara visual.
+vmHandL.group.rotation.set(0, 0, Math.PI);
 vmRifle.group.add(vmHandL.group);
 // viewmodel muzzle, for the flash
 const vmMuzzle = new THREE.Object3D();
@@ -185,6 +190,11 @@ const hud = new HUD();
 const audio = new AudioSys();
 const game = new Game(scene, camera, vmScene, vmCamera, hud, audio);
 game._vmMuzzle = vmMuzzle;
+
+// QC debug handle (9-point fix): exposes the viewmodel + THREE for close-up
+// probes and numeric socket tests. Gameplay-neutral (read-only handle).
+window.__vm = { rifle: vmRifle, handR: vmHandR, handL: vmHandL, camera: vmCamera, scene: vmScene, muzzle: vmMuzzle };
+window.__THREE = THREE;
 
 // ---- input ----
 const keys = {};

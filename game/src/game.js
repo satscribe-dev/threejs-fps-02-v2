@@ -300,7 +300,11 @@ export class Game {
     // frame). The VM muzzle sits at the bottom edge, so its star must be
     // small: 0.03 -> rays ~0.07 m, a modest star peeking up from the bottom
     // edge like Kilnyard-0's barrel-tip star. Never use the enemy scale here.
-    const f = makeFlash(0.03);
+    const f = makeFlash(0.03, 0);
+    // FIX 9 POIN P1 R2 (16 Nov): cahaya flash VM 0,4 MASIH membakar sarung +
+    // handguard jadi coklat di close-up (flash test: 0=hitam). Bintang + sprite
+    // sudah cukup menjual flash di jarak 0,7 m; cahaya tidak menambah apa-apa
+    // kecuali wash. Flash musuh (main scene, jarak meteran) tetap 10.
     const p = new THREE.Vector3();
     if (this._vmMuzzle) this._vmMuzzle.getWorldPosition(p);
     else p.set(0.3, -0.25, -0.3);
