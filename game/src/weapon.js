@@ -132,7 +132,13 @@ export function buildRifle(opts = {}) {
   gripSocket.position.set(0, -0.075, -0.085); // centre of the pistol grip
   g.add(gripSocket);
   const supportSocket = new THREE.Object3D();
-  supportSocket.position.set(0, -0.055, 0.30); // foregrip
+  // FIX 9 POIN P4: support socket PINDAH dari foregrip (z 0.30) ke HANDGUARD
+  // (z 0.22, y -0.017 = permukaan bawah handguard). Tangan kiri musuh HARUS
+  // di handguard 25-35 cm di depan pistol grip (grip z -0.085 -> 0.22 =
+  // 30,5 cm, sama kayak tangan support viewmodel). Socket lama bikin IK
+  // kehabisan jangkauan: bahu kiri -> socket 0,63 m > 0,58 m maks (dL
+  // baseline 0,0554 m). Socket baru: ~0,52-0,55 m, dalam jangkauan.
+  supportSocket.position.set(0, -0.017, 0.22); // handguard
   g.add(supportSocket);
   const ejectSocket = new THREE.Object3D();
   ejectSocket.position.set(0.035, 0.005, 0.06);

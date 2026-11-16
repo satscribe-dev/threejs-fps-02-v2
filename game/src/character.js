@@ -170,14 +170,20 @@ export function buildSoldier(teamKey, name, seed = 1) {
   const legL = makeLeg(-1);
 
   // ---- rifle: origin forward of the chest (z = 0.24 lesson) ----
+  // FIX 9 POIN P4: rifle digeser ke kanan (x 0.06 -> 0.12) supaya popor
+  // lebih dekat ke bahu kanan (bahu kanan di x 0.26). Posisi + sudut aim
+  // -0.46 (di setPose) menaruh popor ~7 cm dari bahu kanan.
   const rifle = buildRifle();
-  rifle.group.position.set(0.06, 0.57, 0.24);
+  rifle.group.position.set(0.12, 0.57, 0.24);
   rifle.group.rotation.y = -0.06; // slight diagonal so the barrel reads from the front
   upper.add(rifle.group);
 
   // ---- hands on the sockets ----
-  const handR = buildHand(0x4a4438);
-  const handL = buildHand(0x4a4438);
+  // FIX 9 POIN P4: sarung HITAM (was 0x4a4438 krem) — sarung krem di atas
+  // baju tan = nol kontras, tangan musuh tidak terbaca sama sekali di
+  // baseline (blob krem). Sarung hitam sama kayak tangan viewmodel.
+  const handR = buildHand(0x17171a);
+  const handL = buildHand(0x17171a);
   armR.wrist.add(handR.group);
   armL.wrist.add(handL.group);
 
@@ -231,13 +237,27 @@ export function buildSoldier(teamKey, name, seed = 1) {
   soldier.setPose = function (pose, opts = {}) {
     soldier.pose = pose;
     upper.rotation.x = 0; upper.rotation.z = 0;
+    upper.rotation.y = 0; // FIX 9 POIN P4: reset (aim pose memutar torso +0.46)
+    upper.position.y = 0.86; // FIX 9 POIN P4 R2: reset (crouch menurunkan ke 0.62;
+    // tanpa reset, crouch -> aim/idle membiarkan torso tetap jongkok)
     root.rotation.x = 0; root.position.y = 0;
     legR.hip.rotation.x = 0; legL.hip.rotation.x = 0;
     legR.knee.rotation.x = 0; legL.knee.rotation.x = 0;
     headG.rotation.x = 0;
+    headG.rotation.y = 0; // FIX 9 POIN P4: reset (aim pose memutar kepala -0.46)
     if (pose === 'aim') {
       upper.rotation.x = 0.10; // lean into the shot
-      rifle.group.rotation.x = 0; rifle.group.rotation.y = -0.02;
+      // FIX 9 POIN P4 — shouldered rifle: popor di bahu kanan. Senapan
+      // di-angle -0.46 (26 deg) ke kiri relatif ke torso supaya popor (z -0.35
+      // di rifle space) mendarat di bahu kanan (x 0.26), BUKAN di tengah dada.
+      // Torso di-blade +0.46 (menghadap kanan) supaya laras tetap menunjuk
+      // lurus ke depan (ke target) — 0.46 - 0.46 = 0. Kepala diputar -0.46
+      // supaya tetap menatap target (bukan ikut torso). Ini stance menembak
+      // yang benar (bladed), bukan manekin menghadap depan. Tanpa blade,
+      // popor di bahu kanan = laras 26 deg meleset dari target.
+      rifle.group.rotation.x = 0; rifle.group.rotation.y = -0.46;
+      upper.rotation.y = 0.46;
+      headG.rotation.y = -0.46;
       headG.rotation.x = 0.06;
       legR.hip.rotation.x = -0.18; legL.hip.rotation.x = 0.10;
       legR.knee.rotation.x = 0.22; legL.knee.rotation.x = 0.12;
@@ -250,7 +270,13 @@ export function buildSoldier(teamKey, name, seed = 1) {
       legR.hip.rotation.x = -1.1; legL.hip.rotation.x = -0.9;
       legR.knee.rotation.x = 1.5; legL.knee.rotation.x = 1.4;
       upper.rotation.x = 0.22;
-      rifle.group.rotation.y = -0.02;
+      // FIX 9 POIN P4 R2: shouldering yang sama kayak aim — di R1 crouch
+      // masih pakai rotation.y -0.02 (laras lurus), jadi socket 0,594 m dari
+      // bahu kiri (dL 0,0235, GAGAL) dan popor 0,173 m dari bahu kanan.
+      // Crouch = aim sambil jongkok, jadi senapan tetap di bahu.
+      rifle.group.rotation.y = -0.46;
+      upper.rotation.y = 0.46;
+      headG.rotation.y = -0.46;
     } else if (pose === 'dead') {
       soldier.dead = true;
       root.rotation.x = -Math.PI / 2 + 0.12;
