@@ -332,6 +332,104 @@ export function buildMap(scene, rng) {
   }
   for (let i = 0; i < helixPts.length - 1; i++) map.add(tube(helixPts[i], helixPts[i + 1], 0.012, wireMat, 5));
 
+  // ---- LEFT SIDE DETAIL (P7): the left mid-ground was bare cobble ----
+  // The right side has stacked containers + pallet + drum in the mid-ground;
+  // the left had only a lamp post + a container + empty cobble. Add: pipe
+  // rack, rusted drum cluster, pallets, cable spool + ground cable, a
+  // directed SPOTLIGHT, and barbed wire on the left perimeter wall.
+  // Positions avoid: site A (-18..-10, -12..-4), mid wall (z -14),
+  // water tower (-19,-16), left containers, existing drums (-12.5,1.5).
+  const rustMat = new THREE.MeshStandardMaterial({ color: 0x7a3a22, metalness: 0.3, roughness: 0.8 });
+  const rustDrumMat = new THREE.MeshStandardMaterial({ color: 0x6a3a28, metalness: 0.4, roughness: 0.75 });
+  // pipe rack: 4 rusted pipes stacked 2x2 on A-frame supports, along z
+  function pipeRack(x, z, ry = 0) {
+    const g = new THREE.Group();
+    for (const s of [-1, 1]) {
+      for (const sz of [-1.6, 1.6]) {
+        const leg = box(0.1, 0.9, 0.1, legMat);
+        leg.position.set(s * 0.5, 0.45, sz);
+        leg.rotation.x = -s * 0.3;
+        g.add(leg);
+      }
+    }
+    for (const [px, py] of [[-0.14, 0.85], [0.14, 0.85], [-0.14, 1.1], [0.14, 1.1]]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4, 12), rustMat);
+      p.rotation.x = Math.PI / 2;
+      p.position.set(px, py, 0);
+      g.add(p);
+    }
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    map.add(g);
+    return g;
+  }
+  pipeRack(-9, 4, 0); // R2: was (-22,0) — tersembunyi di balik kontainer gelap dari kamera side-left; kini di tengah lane kiri, terlihat
+  // rusted drum cluster (3) near the pipe rack
+  drum(-14, 6, rustDrumMat); drum(-13.2, 6.6, rustDrumMat); drum(-13.6, 5.2, drumMat2); // R2: was (-20,5) — sama, tersembunyi; kini di samping lampu kiri
+  // pallets: the left mid-ground had none (right has one at (11,0.5))
+  pallet(-13, 9, 0.3); pallet(-12, 10.5, 0.9);
+  // cable spool + ground cable run to the left wall
+  const spool = new THREE.Group();
+  const spoolCore = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.7, 14), woodMat);
+  spoolCore.rotation.z = Math.PI / 2;
+  spoolCore.position.y = 0.7;
+  spool.add(spoolCore);
+  for (const sx of [-0.4, 0.4]) {
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.08, 14), woodMat);
+    disc.rotation.z = Math.PI / 2;
+    disc.position.set(sx, 0.7, 0);
+    spool.add(disc);
+  }
+  spool.position.set(-16, 0, 10);
+  spool.rotation.y = 0.5;
+  map.add(spool);
+  // ground cable: sagging tube from the spool to the pipe rack (visible
+  // across the open left floor). R2: was ke dinding kiri (-33,6) — di luar
+  // frame + terlalu tipis/gelap; kini radius 0.05, rute pendek yang terlihat.
+  const cablePts = [];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    const p = new THREE.Vector3().lerpVectors(new THREE.Vector3(-16, 0.05, 10), new THREE.Vector3(-9, 0.05, 4), t);
+    p.y += Math.sin(t * Math.PI) * 0.06;
+    cablePts.push(p);
+  }
+  for (let i = 0; i < cablePts.length - 1; i++) map.add(tube(cablePts[i], cablePts[i + 1], 0.05, cableMat, 6));
+  // directed SPOTLIGHT on a pole (left side was lit only by a general lamp)
+  const spot = new THREE.Group();
+  spot.position.set(-18, 0, 12);
+  const spotPole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 7, 10), legMat);
+  spotPole.position.y = 3.5;
+  spot.add(spotPole);
+  const spotHead = box(0.7, 0.3, 0.25, new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.5 }));
+  spotHead.position.set(0, 7.1, 0);
+  spotHead.rotation.x = 0.9; // aimed down into the yard
+  spot.add(spotHead);
+  const spotGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.85, depthWrite: false }));
+  spotGlow.scale.set(1.8, 1.8, 1);
+  spotGlow.position.set(0, 7.1, 0.3);
+  spot.add(spotGlow);
+  const spotLight = new THREE.SpotLight(0xffd9a0, 150, 30, 0.55, 0.5, 1.5); // 150: jarak target ~23 m, decay 1.5 -> pool terang di lantai
+  spotLight.position.set(0, 7, 0);
+  spotLight.target.position.set(18, 0, -12); // aimed at the yard centre
+  spot.add(spotLight);
+  spot.add(spotLight.target);
+  map.add(spot);
+  // barbed wire helix on the DARK LEFT CONTAINER roof (CLDU 771 330-1 at
+  // (-15,4.5), rot 0.35 — foreground-left di kamera side-left, jadi wire
+  // terlihat). R2: was di dinding perimeter kiri (x -34) — di luar frame.
+  const wirePts2 = [];
+  const cax = Math.cos(0.35), caz = -Math.sin(0.35); // container long axis
+  const cpx = Math.sin(0.35), cpz = Math.cos(0.35); // perpendicular axis
+  for (let i = 0; i <= 60; i++) {
+    const t = i / 60;
+    const along = (t - 0.5) * 5.5;
+    wirePts2.push(new THREE.Vector3(
+      -15 + along * cax + Math.cos(t * Math.PI * 10) * 0.15 * cpx,
+      2.75 + Math.sin(t * Math.PI * 10) * 0.15,
+      4.5 + along * caz + Math.cos(t * Math.PI * 10) * 0.15 * cpz));
+  }
+  for (let i = 0; i < wirePts2.length - 1; i++) map.add(tube(wirePts2[i], wirePts2[i + 1], 0.02, wireMat, 5)); // R3: radius 0.012 -> 0.02 (di R2 terlalu tipis, tidak kebaca)
+
   // ---- site floors ----
   // Site A: green tiles (Kilnyard shot 2) + charge device
   const siteA = new THREE.Group();
