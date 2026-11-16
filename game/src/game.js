@@ -321,7 +321,7 @@ export class Game {
   }
 
   spawnSmoke(at, dir) {
-    const s = makeSmoke(at, dir.clone().multiplyScalar(-1), 5, 3);
+    const s = makeSmoke(at, dir.clone().multiplyScalar(-1), 16, 3);
     this.effects.add(s);
     if (!this.frozen) setTimeout(() => this.effects.remove(s), 900);
   }

@@ -2,7 +2,7 @@
 // muzzle flash (petal star), tracers and smoke. All measurements in metres.
 import * as THREE from 'three';
 import { chamferBox, box, lathe, capsule, ball } from './geom.js';
-import { flashTex, smokeTex, rifleSkinTex } from './textures.js';
+import { flashTex, softDiscTex, rifleSkinTex } from './textures.js';
 
 // CELAH 1 + SKIN (16 Nov): "EMBER SPLINTER" — skin prosedural buat viewmodel
 // SAJA (musuh tetap polos: buildRifle() tanpa opts.skin). Satu material
@@ -435,30 +435,40 @@ export function makeTracer(from, to, opacity = 0.5) {
   return mesh;
 }
 
-// ---- smoke plume: cluster of soft sprites, warm-lit, visible at 7 m ----
-// Tested close-up first in look-dev: small sprites vanished at distance, so the
-// plume uses larger, more opaque puffs (0.35-0.7 m) stacked along the shot line.
-let _smokeTex = null;
-export function makeSmoke(origin, dir, count = 5, seed = 3) {
-  if (!_smokeTex) _smokeTex = smokeTex();
-  const group = new THREE.Group();
+// ---- muzzle smoke: small soft points, NOT big sprites ----
+// Cause (diagnosed 16 Nov, celah 2 + P9): the old plume was 5 sprites
+// (0.42-1.0 m, smokeTex) — two failures: (1) near the lens a 1 m sprite
+// fills the frame, so the plume "piled up" as a wall; (2) transparent
+// sprites are blackened by the GTAO pass (proven A-F: texture light,
+// fog=false/map=null/depthWrite=true still black, light in the VM
+// without the composer; mesh spheres and THREE.Points render light).
+// Fix: THREE.Points + softDiscTex, 12 small points (0.14 m) spread along
+// the shot line — small enough not to wall the lens at 0.5 m, and Points
+// survive GTAO (verified at the chimney, diagnostic F).
+let _puffTex = null;
+export function makeSmoke(origin, dir, count = 16, seed = 3) {
+  if (!_puffTex) _puffTex = softDiscTex('rgba(232,222,210,0.9)', 'rgba(232,222,210,0)');
   let s = seed;
   const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const pos = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    const mat = new THREE.SpriteMaterial({
-      map: _smokeTex, transparent: true, opacity: 0.45 + rnd() * 0.15,
-      depthWrite: false, color: 0xe8ded2,
-    });
-    const sp = new THREE.Sprite(mat);
-    const d = 0.15 + i * 0.22 + rnd() * 0.1;
-    sp.position.copy(origin).addScaledVector(dir, d);
-    sp.position.x += (rnd() - 0.5) * 0.25;
-    sp.position.y += (rnd() - 0.5) * 0.2 + i * 0.03;
-    const sc = 0.42 + i * 0.12 + rnd() * 0.15;
-    sp.scale.set(sc, sc, 1);
-    group.add(sp);
+    const d = 0.1 + i * 0.08 + rnd() * 0.06;
+    // R3: sebaran lateral dilebarin (+-0.2 m) + naik i*0.04 (total 0.64 m)
+    // — plume di 7 m tadinya gumpalan ~30 px yang ketutup bintang flash
+    // (0.36) di posisi yang sama; sekarang melebar + naik ke atas/samping
+    // flash, jadi mengintip dari balik bintang.
+    pos[i * 3] = origin.x + dir.x * d + (rnd() - 0.5) * 0.4;
+    pos[i * 3 + 1] = origin.y + dir.y * d + (rnd() - 0.5) * 0.32 + i * 0.04;
+    pos[i * 3 + 2] = origin.z + dir.z * d + (rnd() - 0.5) * 0.4;
   }
-  return group;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.22, sizeAttenuation: true, map: _puffTex, transparent: true,
+    opacity: 0.6, depthWrite: false, color: 0xe8ded2,
+  }));
+  pts.frustumCulled = false;
+  return pts;
 }
 
 // ---- ejected brass casing (tiny, for the action feel) ----
