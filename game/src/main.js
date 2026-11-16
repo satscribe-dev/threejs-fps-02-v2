@@ -107,6 +107,12 @@ vmScene.add(vmLight);
 const vmFill = new THREE.DirectionalLight(0xfff0d0, 0.7);
 vmFill.position.set(-0.5, 0.2, -0.8);
 vmScene.add(vmFill);
+// FIX VM-LOOK: fill from behind the VM camera — lifts the polymer handguard /
+// grip faces that point at the lens (the steel receiver is fixed by its own
+// gunmetal material; this light is for the diffuse parts).
+const vmCamFill = new THREE.DirectionalLight(0xfff2e0, 0.55);
+vmCamFill.position.set(0.2, 0.3, 0.9);
+vmScene.add(vmCamFill);
 const vmRifle = buildRifle();
 // FIX ROUND (16 Nov): VM was ~35% of frame width. Moved farther (z -1.0->-1.3),
 // right (x 0.36->0.44) and down (y -0.33->-0.38) so the visible rifle is
@@ -121,8 +127,16 @@ const vmRifle = buildRifle();
 // axis 28.4 deg from horizontal, handguard (766,495). Hands are children of
 // the rifle group, so the grip fix (trigger 0.000-0.007 m, support fingers
 // over the top rail) is preserved unchanged by the re-stage.
-vmRifle.group.position.set(0.44, -0.38, -1.5);
-vmRifle.group.rotation.set(0.20, -2.60, 0);
+// FIX VM-LOOK (16 Nov): the rifle read as a fat black log, not a rifle.
+// Position moved much closer (z -1.5 -> -0.70) + right/down so the STOCK is
+// out of frame bottom-right (butt (1302,751)) while the muzzle stays near the
+// crosshair (670,390, 42 px away) and the big black support hand sits at
+// frame centre-bottom (762,486) as the focal point, like the CS reference.
+// rotX 0.20 -> 0.30: moving closer flattened the screen angle 28.2 -> 25.8 deg;
+// 0.30 restores 29.7 deg (CS 29.1 deg). Probe-verified (node, vmCamera 54 FOV).
+// Grip contact unchanged (hands are children of the rifle; probe dR/dL same).
+vmRifle.group.position.set(0.338, -0.203, -0.70);
+vmRifle.group.rotation.set(0.30, -2.60, 0);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
 // FIX HAND (16 Nov): the trigger hand DANGLLED below the pistol grip and the
@@ -135,11 +149,11 @@ vmScene.add(vmRifle.group);
 // hook. After the fix (same probe): trigger fingertips 0.000-0.007 m from the
 // grip surface, support fingertips 0.001-0.021 m from the foregrip, palms in
 // contact with the grip's back-left corner. Do NOT move the rifle itself.
-const vmHandR = buildHand(0x4a4438);
+const vmHandR = buildHand(0x17171a); // FIX VM-LOOK: black glove (was 0x4a4438 cream) — CS focal point
 vmHandR.group.position.copy(vmRifle.gripSocket.position).add(new THREE.Vector3(-0.038, 0.034, -0.064));
 vmHandR.group.rotation.set(0.35, 0, Math.PI / 2);
 vmRifle.group.add(vmHandR.group);
-const vmHandL = buildHand(0x4a4438);
+const vmHandL = buildHand(0x17171a); // FIX VM-LOOK: black glove (was 0x4a4438 cream)
 // FIX HANDGUARD (16 Nov, referensi CS user 13:36 WIB): tangan support HARUS
 // menggenggam HANDGUARD seperti referensi — jari melengkung KE ATAS melewati
 // rel atas, jempol di sisi samping. Bukan di foregrip vertikal (pose lama:

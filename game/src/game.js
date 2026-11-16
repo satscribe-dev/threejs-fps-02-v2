@@ -403,7 +403,11 @@ export class Game {
       // unprojects to (694,458) at 1.9 m (probe-verified). The tracer now
       // runs ~205 px diagonally to e1 — shorter, but still a clear diagonal,
       // not a stub.
-      this.spawnTracer(new THREE.Vector3(0.097, 1.278, 10.134), new THREE.Vector3(-2.5, 1.35, 5));
+      // FIX VM-LOOK (16 Nov): the VM moved closer (muzzle now (670,390)),
+      // so the start point moves again: (0.005,1.539,10.102) unprojects to
+      // (670,390) at 1.9 m (probe-verified). The tracer runs from the muzzle
+      // to e1 — longer than the 205 px staging version.
+      this.spawnTracer(new THREE.Vector3(0.005, 1.539, 10.102), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';
