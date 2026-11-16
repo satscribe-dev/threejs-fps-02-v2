@@ -51,7 +51,7 @@ export function buildSoldier(teamKey, name, seed = 1) {
   const pants = std(team.pants, 0.9);
   const vestMat = std(team.vest, 0.75);
   const helmetMat = std(team.helmet, 0.6);
-  const dark = std(0x1e1e1c, 0.9);       // balaclava
+  const dark = std(0x35342e, 0.9);       // balaclava (P5: was 0x1e1e1c near-black)
   const skin = std(0x8a6f56, 0.75);
   const bootMat = std(0x2a241e, 0.85);
 
@@ -61,29 +61,32 @@ export function buildSoldier(teamKey, name, seed = 1) {
   root.add(upper);
 
   // ---- torso: two tapered segments + trapezius wedge ----
-  const abdomen = chamferBox(0.40, 0.30, 0.22, 0.03, shirt);
+  // FIX 9 POIN P5: torso DILANGSINGKAN (was abdomen 0.40 / chest 0.46 /
+  // trap 0.34 / hips 0.40 — menggembung kayak kotak). Atlet 1.80 m: bahu
+  // 0.48 (2 kepala), dada 0.42, pinggang 0.36. Pelat rompi ikut ramping.
+  const abdomen = chamferBox(0.36, 0.28, 0.20, 0.03, shirt);
   abdomen.position.set(0, 0.14, 0);
   upper.add(abdomen);
-  const chest = chamferBox(0.46, 0.34, 0.25, 0.04, shirt);
+  const chest = chamferBox(0.42, 0.32, 0.22, 0.04, shirt);
   chest.position.set(0, 0.42, 0);
   upper.add(chest);
-  const trap = chamferBox(0.34, 0.12, 0.20, 0.03, shirt);
+  const trap = chamferBox(0.30, 0.11, 0.18, 0.03, shirt);
   trap.position.set(0, 0.60, -0.01);
   upper.add(trap);
   // hips
-  const hips = chamferBox(0.40, 0.20, 0.23, 0.03, pants);
+  const hips = chamferBox(0.36, 0.19, 0.21, 0.03, pants);
   hips.position.set(0, -0.06, 0);
   upper.add(hips);
   // belt (not floating: sits on the hips)
-  const belt = chamferBox(0.41, 0.06, 0.24, 0.015, std(0x2a241e, 0.8));
+  const belt = chamferBox(0.37, 0.06, 0.22, 0.015, std(0x2a241e, 0.8));
   belt.position.set(0, 0.03, 0);
   upper.add(belt);
 
   // ---- vest: full plate carrier + pouches (reads at 3 m) ----
-  const plate = chamferBox(0.38, 0.34, 0.07, 0.02, vestMat);
+  const plate = chamferBox(0.34, 0.32, 0.06, 0.02, vestMat);
   plate.position.set(0, 0.42, 0.15);
   upper.add(plate);
-  const backPlate = chamferBox(0.38, 0.34, 0.06, 0.02, vestMat);
+  const backPlate = chamferBox(0.34, 0.32, 0.05, 0.02, vestMat);
   backPlate.position.set(0, 0.42, -0.15);
   upper.add(backPlate);
   for (const px of [-0.11, 0.11]) {
@@ -92,10 +95,15 @@ export function buildSoldier(teamKey, name, seed = 1) {
     upper.add(pouch);
   }
   const sidePouch = chamferBox(0.06, 0.16, 0.12, 0.015, vestMat);
-  sidePouch.position.set(0.24, 0.38, 0.05);
+  sidePouch.position.set(0.22, 0.38, 0.05); // P5: was 0.24 (di luar dada 0.42)
   upper.add(sidePouch);
 
   // ---- neck + head: balaclava ball, helmet over it, goggles in front ----
+  // FIX 9 POIN P5: balaclava lebih TERANG (was 0x1e1e1c near-black — massa
+  // gelap, wajah tidak kebaca). 0x35342e = kain gelap yang masih kebaca
+  // sebagai kain, bukan void. VISOR lebar reflektif menggantikan 2 lensa
+  // titik kecil (baseline: "goggle 2 titik kecil") — satu kaca lebar
+  // melengkung di depan wajah, reflektif (envMapIntensity 2.0).
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.10, 10), skin);
   neck.position.set(0, 0.66, 0);
   upper.add(neck);
@@ -111,33 +119,40 @@ export function buildSoldier(teamKey, name, seed = 1) {
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.14, 0.025, 16), helmetMat);
   brim.position.set(0, 0.055, 0);
   headG.add(brim);
-  // goggle band (torus) + lenses IN FRONT of the band (z = +0.15 lesson)
+  // visor: ONE wide reflective lens across the face (was 2 tiny lens balls).
+  // Curved box, high metalness + envMapIntensity so it catches the dusk sky.
+  // R2: warna lebih TERANG (was 0x3a4a5a — di R1 kebaca gelap, bukan
+  // reflektif) + lebih mengkilap (roughness 0.08) supaya kaca memantulkan
+  // langit dusk, bukan jadi pita hitam.
+  const visorMat = new THREE.MeshStandardMaterial({ color: 0x6a7a8a, metalness: 0.7, roughness: 0.08, envMapIntensity: 2.5 });
+  const visor = chamferBox(0.20, 0.075, 0.035, 0.012, visorMat);
+  visor.position.set(0, 0.01, 0.095);
+  headG.add(visor);
+  // goggle band (torus) frames the visor
   const band = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.024, 10, 24), dark);
   band.position.set(0, 0.01, 0.005);
   headG.add(band);
-  const lensMat = new THREE.MeshStandardMaterial({ color: 0x2a3a48, metalness: 0.4, roughness: 0.15, envMapIntensity: 1.2 });
-  for (const lx of [-0.048, 0.048]) {
-    const lens = ball(0.032, lensMat);
-    lens.scale.set(1, 0.75, 0.5);
-    lens.position.set(lx, 0.01, 0.105);
-    headG.add(lens);
-  }
-  // nose hint under the goggles (keeps the face from being a void)
+  // nose hint under the visor (keeps the face from being a void)
   const nose = chamferBox(0.02, 0.035, 0.02, 0.008, dark);
   nose.position.set(0, -0.045, 0.105);
   headG.add(nose);
 
   // ---- arms: shoulder pivot -> upper -> elbow pivot -> forearm -> wrist ----
+  // FIX 9 POIN P5: lengan DIRAMPINGKAN (was upper r 0.055 / forearm 0.048 —
+  // lengan kayak pipa) + SIKU kelihatan (elbow ball). Bahu 0.26 -> 0.24
+  // (ikut torso yang dilangsingkan; pivot tetap di tepi dada 0.42).
   function makeArm(side) { // side: -1 left, +1 right
     const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.26, 0.56, 0);
+    shoulder.position.set(side * 0.24, 0.56, 0);
     upper.add(shoulder);
-    const up = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.30, 0), 0.055, shirt);
+    const up = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.30, 0), 0.048, shirt);
     shoulder.add(up);
     const elbow = new THREE.Group();
     elbow.position.set(0, -0.30, 0);
     shoulder.add(elbow);
-    const fore = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.28, 0), 0.048, shirt);
+    const elbowBall = ball(0.045, shirt); // P5: siku kelihatan (was pipa polos)
+    elbow.add(elbowBall);
+    const fore = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.28, 0), 0.042, shirt);
     elbow.add(fore);
     const wrist = new THREE.Group();
     wrist.position.set(0, -0.28, 0);
@@ -148,18 +163,20 @@ export function buildSoldier(teamKey, name, seed = 1) {
   const armL = makeArm(-1);
 
   // ---- legs: hip pivot -> thigh -> knee -> calf -> boot ----
+  // FIX 9 POIN P5: kaki dirampingkan (was thigh r 0.07 / calf 0.058 /
+  // knee 0.075 — kaki kayak tiang). Lutut + betis + sepatu bot sudah ada.
   function makeLeg(side) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.11, -0.10, 0);
     upper.add(hip);
-    const thigh = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.42, 0), 0.07, pants);
+    const thigh = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.42, 0), 0.062, pants);
     hip.add(thigh);
     const knee = new THREE.Group();
     knee.position.set(0, -0.42, 0);
     hip.add(knee);
-    const kneeCap = ball(0.075, pants);
+    const kneeCap = ball(0.068, pants);
     knee.add(kneeCap);
-    const calf = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.38, 0), 0.058, pants);
+    const calf = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.38, 0), 0.052, pants);
     knee.add(calf);
     const boot = chamferBox(0.11, 0.09, 0.26, 0.02, bootMat);
     boot.position.set(0, -0.44, 0.05);
@@ -173,8 +190,12 @@ export function buildSoldier(teamKey, name, seed = 1) {
   // FIX 9 POIN P4: rifle digeser ke kanan (x 0.06 -> 0.12) supaya popor
   // lebih dekat ke bahu kanan (bahu kanan di x 0.26). Posisi + sudut aim
   // -0.46 (di setPose) menaruh popor ~7 cm dari bahu kanan.
+  // FIX 9 POIN P5: senapan musuh SCALE 1.05 (brief: "sedikit lebih besar").
+  // Socket ikut scale (IK adaptif); posisi z 0.24 -> 0.26 mengkompensasi
+  // popor yang mundur 1,75 cm karena scale (popor tetap ~0.09 m dari bahu).
   const rifle = buildRifle();
-  rifle.group.position.set(0.12, 0.57, 0.24);
+  rifle.group.position.set(0.12, 0.57, 0.26);
+  rifle.group.scale.set(1.05, 1.05, 1.05);
   rifle.group.rotation.y = -0.06; // slight diagonal so the barrel reads from the front
   upper.add(rifle.group);
 
@@ -182,8 +203,15 @@ export function buildSoldier(teamKey, name, seed = 1) {
   // FIX 9 POIN P4: sarung HITAM (was 0x4a4438 krem) — sarung krem di atas
   // baju tan = nol kontras, tangan musuh tidak terbaca sama sekali di
   // baseline (blob krem). Sarung hitam sama kayak tangan viewmodel.
+  // FIX 9 POIN P5: tangan di-scale 0.9 — lengan bawah dirampingkan ke
+  // r 0.042 (lebar 0.084), jadi telapak 0.104 / 0.084 = 1.24 MELEBIHI batas
+  // brief (maks 1.2x). Scale 0.9 -> telapak 0.0936, rasio 1.11. Grip probe
+  // mengukur PERGELANGAN (bukan ujung jari), jadi scale tangan tidak
+  // mengubah gripError.
   const handR = buildHand(0x17171a);
   const handL = buildHand(0x17171a);
+  handR.group.scale.set(0.9, 0.9, 0.9);
+  handL.group.scale.set(0.9, 0.9, 0.9);
   armR.wrist.add(handR.group);
   armL.wrist.add(handL.group);
 
@@ -266,10 +294,14 @@ export function buildSoldier(teamKey, name, seed = 1) {
       rifle.group.rotation.x = 0.15;
       legR.hip.rotation.x = -0.05; legL.hip.rotation.x = 0.05;
     } else if (pose === 'crouch') {
-      upper.position.y = 0.62;
-      legR.hip.rotation.x = -1.1; legL.hip.rotation.x = -0.9;
-      legR.knee.rotation.x = 1.5; legL.knee.rotation.x = 1.4;
-      upper.rotation.x = 0.22;
+      // FIX 9 POIN P5 R2: crouch lebih RENDAH + lebih condong + kaki
+      // staggered (satu ke depan, satu ke belakang) — di R1 crouch = squat
+      // simetris yang kaku. Ini setengah-berlutut (kneel) di cover, bukan
+      // jongkok tegak. Upper turun 0.62 -> 0.58, lean 0.22 -> 0.30.
+      upper.position.y = 0.58;
+      legR.hip.rotation.x = -1.3; legL.hip.rotation.x = -0.6;
+      legR.knee.rotation.x = 1.7; legL.knee.rotation.x = 1.0;
+      upper.rotation.x = 0.30;
       // FIX 9 POIN P4 R2: shouldering yang sama kayak aim — di R1 crouch
       // masih pakai rotation.y -0.02 (laras lurus), jadi socket 0,594 m dari
       // bahu kiri (dL 0,0235, GAGAL) dan popor 0,173 m dari bahu kanan.
