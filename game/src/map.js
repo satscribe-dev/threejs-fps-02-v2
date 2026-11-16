@@ -1,0 +1,339 @@
+// map.js — CINDERLINE YARD: a dusk rail yard, 3 lanes, 2 sites, one landmark.
+// Containers are ISO-proportioned with real corrugation, serials, CSC plates and
+// locking rods; the ground is wet cobble; every 10x10 m cell holds a prop, decal or light.
+import * as THREE from 'three';
+import { box, chamferBox, tube, corrugatedPanel, ball, blobShadow } from './geom.js';
+import { containerSideTex, containerDoorTex, groundTex, groundRoughTex, brickTex, woodTex, signTex, softDiscTex } from './textures.js';
+import { mulberry32 } from './textures.js';
+
+const CONTAINERS = [
+  // serial, maxGross, tare, color, length, x, z, rotY, stacked
+  ['CLDU 482 913-7', '30 480 KG', '3 720 KG', '#b4502e', 12.19, 0, -3.0, 0.0, false],
+  ['TCLU 309 5552', '30 480 KG', '3 700 KG', '#4a6a52', 6.06, -9.5, -3.0, 0.0, false],
+  ['MSKU 771 204-9', '30 480 KG', '3 800 KG', '#5a6a7a', 12.19, 10.5, -3.0, 0.0, true],
+  ['CLDU 771 330-1', '30 480 KG', '3 720 KG', '#8a3a2a', 6.06, -15, 4.5, 0.35, false],
+  ['TCLU 482 117-4', '30 480 KG', '3 700 KG', '#b4502e', 12.19, 2, -12.5, 0.0, false],
+  ['MSKU 204 881-6', '30 480 KG', '3 800 KG', '#6a5a3a', 6.06, 16, 5.5, -0.4, false],
+  ['CLDU 119 552-0', '30 480 KG', '3 720 KG', '#4a6a52', 6.06, -6, 10.5, 0.15, false],
+];
+
+function container(serial, maxGross, tare, base, len, seed) {
+  const g = new THREE.Group();
+  const W = 2.44, H = 2.59;
+  const sideTex = containerSideTex({ serial, maxGross, tare, base, seed });
+  const doorTex = containerDoorTex({ base, seed: seed + 1 });
+  const sideMat = new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.62, metalness: 0.25 });
+  const doorMat = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.62, metalness: 0.25 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a2622, metalness: 0.5, roughness: 0.55 });
+  // long sides: real corrugation (trapezoid loft)
+  for (const z of [-W / 2, W / 2]) {
+    const panel = corrugatedPanel(len, H, sideMat, { pitch: 0.28, amp: 0.035 });
+    panel.position.set(0, H / 2, z);
+    if (z < 0) panel.rotation.y = Math.PI;
+    g.add(panel);
+  }
+  // door end (+X): flat panel + 4 locking rods with handles
+  const door = box(0.06, H - 0.1, W - 0.1, doorMat);
+  door.position.set(len / 2, H / 2, 0);
+  g.add(door);
+  const rodMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 });
+  for (const rz of [-0.85, -0.3, 0.3, 0.85]) {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, H - 0.25, 8), rodMat);
+    rod.position.set(len / 2 + 0.05, H / 2, rz);
+    g.add(rod);
+    const handle = box(0.03, 0.16, 0.05, rodMat);
+    handle.position.set(len / 2 + 0.07, H / 2 + 0.1, rz + 0.05);
+    handle.rotation.z = 0.5;
+    g.add(handle);
+  }
+  // closed end (-X)
+  const end = box(0.06, H - 0.1, W - 0.1, sideMat);
+  end.position.set(-len / 2, H / 2, 0);
+  g.add(end);
+  // roof
+  const roof = box(len, 0.06, W, frameMat);
+  roof.position.set(0, H, 0);
+  g.add(roof);
+  // corner posts + castings
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const post = box(0.12, H, 0.12, frameMat);
+    post.position.set(sx * (len / 2 - 0.06), H / 2, sz * (W / 2 - 0.06));
+    g.add(post);
+    const cast = box(0.16, 0.16, 0.16, frameMat);
+    cast.position.set(sx * (len / 2 - 0.06), H - 0.08, sz * (W / 2 - 0.06));
+    g.add(cast);
+  }
+  return g;
+}
+
+export function buildMap(scene, rng) {
+  const map = new THREE.Group();
+  scene.add(map);
+  const data = { containers: [], walls: [], puddles: [], sites: {} };
+
+  // ---- ground: wet cobble ----
+  const gTex = groundTex(7);
+  gTex.repeat.set(4, 3);
+  const gRough = groundRoughTex(7);
+  gRough.repeat.set(4, 3);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(70, 50),
+    new THREE.MeshStandardMaterial({ map: gTex, roughnessMap: gRough, roughness: 1.0, metalness: 0.05 }),
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  map.add(ground);
+
+  // ---- puddles: flat discs that catch the sky (roughness 0.15) ----
+  const puddleMat = new THREE.MeshStandardMaterial({
+    color: 0x4a4038, roughness: 0.15, metalness: 0.1, envMapIntensity: 1.6, transparent: true, opacity: 0.88,
+  });
+  const puddleSpots = [[-4, 2.5, 1.6], [6, 1.5, 1.2], [-11, -6, 1.4], [9, -8, 1.8], [0, 7, 1.1], [-1, -6.5, 0.9], [13, -1, 1.3]];
+  for (const [x, z, r] of puddleSpots) {
+    const p = new THREE.Mesh(new THREE.CircleGeometry(r, 24), puddleMat);
+    p.rotation.x = -Math.PI / 2;
+    p.position.set(x, 0.012, z);
+    map.add(p);
+    data.puddles.push([x, z, r]);
+  }
+
+  // ---- containers ----
+  CONTAINERS.forEach((c, i) => {
+    const [serial, mg, tare, base, len, x, z, rot, stacked] = c;
+    const cont = container(serial, mg, tare, base, len, 10 + i * 7);
+    cont.userData.len = len;
+    cont.position.set(x, 0, z);
+    cont.rotation.y = rot;
+    map.add(cont);
+    data.containers.push(cont);
+    if (stacked) {
+      const top = container('CLDU 482 913-7', mg, tare, '#8a5a44', 6.06, 40 + i * 7);
+      top.position.set(x - 1, 2.59, z);
+      top.rotation.y = rot;
+      map.add(top);
+      data.containers.push(top);
+    }
+  });
+
+  // ---- perimeter + mid brick walls ----
+  const brick = brickTex(11);
+  brick.repeat.set(6, 2);
+  const brickMat = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.9 });
+  function wall(w, h, d, x, y, z, ry = 0) {
+    const m = box(w, h, d, brickMat);
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    map.add(m);
+    data.walls.push(m);
+    return m;
+  }
+  wall(70, 5, 0.6, 0, 2.5, -24);
+  wall(70, 5, 0.6, 0, 2.5, 24);
+  wall(0.6, 5, 48, -34, 2.5, 0);
+  wall(0.6, 5, 48, 34, 2.5, 0);
+  wall(18, 3.4, 0.5, -20, 1.7, -14); // mid wall, site A side
+  wall(14, 3.4, 0.5, 18, 1.7, -16);
+
+  // ---- signs ----
+  function sign(main, sub, w, x, y, z, ry) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, w * 0.375),
+      new THREE.MeshStandardMaterial({ map: signTex(main, sub), roughness: 0.7 }),
+    );
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    map.add(m);
+    return m;
+  }
+  sign('CINDERLINE', 'YARD 07', 6, 0, 4.6, -23.6, 0);
+  sign('SITE A', 'KILN HALL', 3.2, -20, 3.2, -13.7, 0);
+  sign('SITE B', 'GLAZE COURT', 3.2, 18, 3.2, -15.7, 0);
+
+  // ---- water tower (landmark) ----
+  const tower = new THREE.Group();
+  tower.position.set(-19, 0, -16);
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x3a3230, metalness: 0.6, roughness: 0.5 });
+  for (const [lx, lz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) {
+    tower.add(tube(new THREE.Vector3(lx, 0, lz), new THREE.Vector3(lx * 0.7, 6.5, lz * 0.7), 0.09, legMat));
+  }
+  const tankMat = new THREE.MeshStandardMaterial({ color: 0x9a4a30, metalness: 0.3, roughness: 0.6 });
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 2.6, 20), tankMat);
+  tank.position.y = 7.8;
+  tower.add(tank);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(2.15, 1.1, 20), new THREE.MeshStandardMaterial({ color: 0x6a3a26, roughness: 0.7 }));
+  cone.position.y = 9.65;
+  tower.add(cone);
+  const tsign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.4, 1.28),
+    new THREE.MeshStandardMaterial({ map: signTex('CINDERLINE', ''), roughness: 0.7 }),
+  );
+  tsign.position.set(0, 7.8, 2.05);
+  tower.add(tsign);
+  map.add(tower);
+  data.landmark = tower;
+
+  // ---- floodlight towers (glow sprites, NOT cones — cones read as white triangles) ----
+  const glowTex = softDiscTex('rgba(255,230,170,0.95)', 'rgba(255,230,170,0)');
+  function floodlight(x, z) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 7, 10), legMat);
+    pole.position.y = 3.5;
+    g.add(pole);
+    const head = box(0.7, 0.3, 0.25, new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.5 }));
+    head.position.set(0, 7.1, 0);
+    head.rotation.x = 0.5;
+    g.add(head);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.85, depthWrite: false }));
+    glow.scale.set(2.6, 2.6, 1);
+    glow.position.set(0, 7.1, 0.3);
+    g.add(glow);
+    const light = new THREE.PointLight(0xffd9a0, 14, 22, 1.8);
+    light.position.set(0, 6.8, 0.4);
+    g.add(light);
+    map.add(g);
+    return g;
+  }
+  floodlight(-10, 6);
+  floodlight(12, 4);
+
+  // ---- sagging cables between the towers ----
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.9 });
+  function cable(a, b, sag) {
+    const pts = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      const p = new THREE.Vector3().lerpVectors(a, b, t);
+      p.y -= Math.sin(t * Math.PI) * sag;
+      pts.push(p);
+    }
+    for (let i = 0; i < pts.length - 1; i++) map.add(tube(pts[i], pts[i + 1], 0.02, cableMat, 6));
+  }
+  cable(new THREE.Vector3(-10, 7, 6), new THREE.Vector3(12, 7, 4), 1.1);
+  cable(new THREE.Vector3(-10, 7, 6), new THREE.Vector3(-19, 8.5, -16), 1.6);
+
+  // ---- props: crates, pallets, drums, barricades, sandbags ----
+  const wood = woodTex(13);
+  const woodMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.85 });
+  function crate(x, z, s, ry = 0) {
+    const m = chamferBox(s, s, s, 0.02, woodMat);
+    m.position.set(x, s / 2, z);
+    m.rotation.y = ry;
+    map.add(m);
+    return m;
+  }
+  crate(-6.5, 0.5, 0.9, 0.3); crate(-6.5, 0.5, 0.9, 0.3).position.y = 1.35;
+  crate(-5.6, 0.2, 0.7, 0.9);
+  crate(7.5, -6.5, 1.0, 0.2); crate(8.5, -6.8, 0.7, 0.5);
+  crate(-13, -9, 0.9, 0.1);
+  crate(14, 8, 0.8, 0.7);
+  function pallet(x, z, ry = 0) {
+    const g = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const slat = box(1.2, 0.04, 0.14, woodMat);
+      slat.position.set(0, 0.14, -0.5 + i * 0.25);
+      g.add(slat);
+    }
+    for (const bx of [-0.5, 0, 0.5]) {
+      const block = box(0.12, 0.12, 1.1, woodMat);
+      block.position.set(bx, 0.06, 0);
+      g.add(block);
+    }
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    map.add(g);
+    return g;
+  }
+  pallet(3, 6.5, 0.4); pallet(-3, -7, 1.1); pallet(11, 0.5, 0.2);
+  const drumMat = new THREE.MeshStandardMaterial({ color: 0x5a6a72, metalness: 0.5, roughness: 0.55 });
+  const drumMat2 = new THREE.MeshStandardMaterial({ color: 0x7a4a2a, metalness: 0.4, roughness: 0.6 });
+  function drum(x, z, mat) {
+    const d = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.9, 16), mat);
+    d.position.set(x, 0.45, z);
+    map.add(d);
+    return d;
+  }
+  drum(-12.5, 1.5, drumMat); drum(-11.8, 2.1, drumMat2); drum(5, -9.5, drumMat);
+  // barricades: wooden A-frames
+  function barricade(x, z, ry) {
+    const g = new THREE.Group();
+    for (const s of [-1, 1]) {
+      const leg = box(0.08, 1.1, 0.08, woodMat);
+      leg.position.set(s * 0.5, 0.55, 0);
+      leg.rotation.z = s * 0.35;
+      g.add(leg);
+    }
+    const plank = box(1.4, 0.18, 0.06, woodMat);
+    plank.position.set(0, 0.95, 0);
+    g.add(plank);
+    g.position.set(x, 0, z);
+    g.rotation.y = ry;
+    map.add(g);
+  }
+  barricade(-2, -5.5, 0.3); barricade(4, 2.5, -0.5);
+  // sandbags near site A
+  const sandMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 1 });
+  for (let i = 0; i < 6; i++) {
+    const s = chamferBox(0.55, 0.22, 0.35, 0.06, sandMat);
+    s.position.set(-16 + (i % 3) * 0.6, 0.11 + Math.floor(i / 3) * 0.22, -6.5 + (i % 2) * 0.4);
+    s.rotation.y = (i * 0.4) % 0.8;
+    map.add(s);
+  }
+  // barbed wire helix on the mid wall
+  const wireMat = new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.8, roughness: 0.4 });
+  const helixPts = [];
+  for (let i = 0; i <= 60; i++) {
+    const t = i / 60;
+    helixPts.push(new THREE.Vector3(-28 + t * 16, 3.6 + Math.sin(t * Math.PI * 10) * 0.18, -14 + Math.cos(t * Math.PI * 10) * 0.18));
+  }
+  for (let i = 0; i < helixPts.length - 1; i++) map.add(tube(helixPts[i], helixPts[i + 1], 0.012, wireMat, 5));
+
+  // ---- site floors ----
+  // Site A: green tiles (Kilnyard shot 2) + charge device
+  const siteA = new THREE.Group();
+  siteA.position.set(-14, 0, -8);
+  const tileCanvas = document.createElement('canvas');
+  tileCanvas.width = tileCanvas.height = 256;
+  const tg = tileCanvas.getContext('2d');
+  tg.fillStyle = '#1d4a38'; tg.fillRect(0, 0, 256, 256);
+  tg.strokeStyle = '#2a6a50'; tg.lineWidth = 3;
+  for (let i = 0; i <= 8; i++) {
+    tg.beginPath(); tg.moveTo(i * 32, 0); tg.lineTo(i * 32, 256); tg.stroke();
+    tg.beginPath(); tg.moveTo(0, i * 32); tg.lineTo(256, i * 32); tg.stroke();
+  }
+  tg.strokeStyle = '#d8b83a'; tg.lineWidth = 6; tg.strokeRect(4, 4, 248, 248);
+  const tileTex = new THREE.CanvasTexture(tileCanvas);
+  tileTex.colorSpace = THREE.SRGBColorSpace;
+  tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping;
+  tileTex.repeat.set(2, 2);
+  const floorA = new THREE.Mesh(new THREE.PlaneGeometry(8, 8),
+    new THREE.MeshStandardMaterial({ map: tileTex, roughness: 0.55, metalness: 0.05 }));
+  floorA.rotation.x = -Math.PI / 2;
+  floorA.position.y = 0.02;
+  siteA.add(floorA);
+  const charge = new THREE.Group();
+  const chargeBody = chamferBox(0.7, 0.35, 0.5, 0.05, new THREE.MeshStandardMaterial({ color: 0x4a5a3a, metalness: 0.4, roughness: 0.5 }));
+  chargeBody.position.y = 0.2;
+  charge.add(chargeBody);
+  const chargeLight = new THREE.Mesh(new THREE.CircleGeometry(0.09, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff5030 }));
+  chargeLight.rotation.x = -Math.PI / 2;
+  chargeLight.position.set(0, 0.39, 0);
+  charge.add(chargeLight);
+  charge.position.set(1.5, 0, 1);
+  siteA.add(charge);
+  map.add(siteA);
+  data.sites.A = siteA;
+  // Site B: marked zone (painted rectangle + posts)
+  const siteB = new THREE.Group();
+  siteB.position.set(14, 0, -8);
+  const zone = new THREE.Mesh(new THREE.PlaneGeometry(7, 7),
+    new THREE.MeshStandardMaterial({ color: 0x8a2a20, transparent: true, opacity: 0.35, roughness: 0.8 }));
+  zone.rotation.x = -Math.PI / 2;
+  zone.position.y = 0.02;
+  siteB.add(zone);
+  map.add(siteB);
+  data.sites.B = siteB;
+
+  return { group: map, data };
+}
