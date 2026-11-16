@@ -21,6 +21,11 @@ export const MAT = {
   wood: new THREE.MeshStandardMaterial({ color: 0x5e3d22, metalness: 0.0, roughness: 0.7 }),
   brass: new THREE.MeshStandardMaterial({ color: 0x8a6d3b, metalness: 0.9, roughness: 0.35 }),
   lens: new THREE.MeshStandardMaterial({ color: 0x2a3a48, metalness: 0.4, roughness: 0.15, envMapIntensity: 1.4 }),
+  // FIX 9 POIN P3: tactical sleeve — tan/olive (CS Dust reference: the
+  // sleeve runs from the wrist to the frame edge, tan/olive, NOT black).
+  // Rough cloth, no metalness. sleeveDark = cloth fold at the elbow.
+  sleeve: new THREE.MeshStandardMaterial({ color: 0x6b6a4a, metalness: 0.0, roughness: 0.9 }),
+  sleeveDark: new THREE.MeshStandardMaterial({ color: 0x55543c, metalness: 0.0, roughness: 0.95 }),
 };
 
 // Rifle, forward = +Z, muzzle at z ~ +0.48. Origin at the receiver centre, y = bore line.
@@ -243,6 +248,76 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   tip.position.set(-0.010, -0.028, 0.115);
   g.add(tip);
   return { group: g, fingers, tip, skinMat };
+}
+
+// FIX 9 POIN P3 — full arm: forearm (tapering) + elbow + upper arm, in a
+// tactical sleeve (tan/olive, CS Dust reference). The arm is a child of the
+// HAND group, so it follows the hand during recoil / sway / reload / weapon
+// switch — it can never detach from the wrist. The direction is given in VM
+// space (down + outward + toward the camera, so the arm runs to the bottom
+// corner and ALWAYS exits the frame) and converted to hand-local via the
+// hand's world quaternion — call AFTER the rifle is in the scene and
+// updateMatrixWorld() has run, or the conversion is garbage.
+// Elbow: the upper arm bends ~20 deg further down than the forearm (a real
+// arm is never a straight pipe). A darker fold ring at the elbow suggests
+// cloth creasing. The forearm starts inside the palm (hidden) and passes
+// through the black glove cuff at the wrist, so there is no open gap and no
+// visible cut — the arm end (armEnd marker) must project OUTSIDE the frame.
+// Returns { group, armEnd }.
+export function buildArm(handGroup, dirVM, opts = {}) {
+  const g = new THREE.Group();
+  const q = new THREE.Quaternion();
+  handGroup.getWorldQuaternion(q);
+  const qInv = q.clone().invert();
+  const foreDir = dirVM.clone().normalize();
+  // elbow bend: rotate the forearm direction toward VM down (-Y) so the
+  // upper arm runs more steeply down to the frame edge.
+  const down = new THREE.Vector3(0, -1, 0);
+  const bendAxis = new THREE.Vector3().crossVectors(foreDir, down);
+  if (bendAxis.lengthSq() < 1e-6) bendAxis.set(1, 0, 0); // parallel: any axis
+  bendAxis.normalize();
+  const upperDir = foreDir.clone().applyAxisAngle(bendAxis, THREE.MathUtils.degToRad(opts.bend ?? 20));
+  const foreLocal = foreDir.clone().applyQuaternion(qInv);
+  const upperLocal = upperDir.clone().applyQuaternion(qInv);
+  const foreLen = opts.foreLen ?? 0.28;
+  const upperLen = opts.upperLen ?? 0.30;
+  const elbow = foreLocal.clone().multiplyScalar(foreLen);
+  // tapered cylinder helper (wrist -> elbow): a real forearm tapers from the
+  // wrist to the elbow; a uniform capsule reads as a pipe. Open ends are
+  // fine — the wrist end hides inside the palm, the elbow end inside the
+  // elbow ball, the far end outside the frame.
+  const taperTube = (a, b, rA, rB, mat) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const len = dir.length();
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, len, 12), mat);
+    mesh.position.copy(a).addScaledVector(dir, 0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    return mesh;
+  };
+  // forearm: wrist -> elbow (sleeve), tapering 0.036 (wrist) -> 0.046 (elbow).
+  // Starts at the hand origin, inside the palm, so the wrist joint is never open.
+  g.add(taperTube(new THREE.Vector3(0, 0, 0), elbow, 0.036, 0.046, MAT.sleeve));
+  // elbow: ball (joint) + subtler fold ring (cloth crease at the bend).
+  // R2: ring lebih tipis + lebih terang (was sleeveDark 0x55543c, tube 0.007 —
+  // di R1 kebaca seperti tali/strap gelap, bukan lipatan kain).
+  const elbowBall = ball(0.046, MAT.sleeve);
+  elbowBall.position.copy(elbow);
+  g.add(elbowBall);
+  const foldMat = new THREE.MeshStandardMaterial({ color: 0x60604a, metalness: 0.0, roughness: 0.95 });
+  const fold = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.004, 8, 18), foldMat);
+  fold.position.copy(elbow);
+  fold.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), foreLocal.clone().normalize());
+  g.add(fold);
+  // upper arm: elbow -> end, tapering 0.046 -> 0.054 (slightly thicker).
+  const end = elbow.clone().addScaledVector(upperLocal, upperLen);
+  g.add(taperTube(elbow, end, 0.046, 0.054, MAT.sleeve));
+  // armEnd marker: the harness projects this — it MUST be outside the frame.
+  const armEnd = new THREE.Object3D();
+  armEnd.name = 'armEnd';
+  armEnd.position.copy(end);
+  g.add(armEnd);
+  handGroup.add(g);
+  return { group: g, armEnd };
 }
 
 // ---- muzzle flash: petal-star sprite + point light, frozen at peak ----

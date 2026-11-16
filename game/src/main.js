@@ -10,7 +10,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { Game } from './game.js';
 import { HUD } from './hud.js';
 import { AudioSys } from './audio.js';
-import { buildRifle, buildHand } from './weapon.js';
+import { buildRifle, buildHand, buildArm } from './weapon.js';
 
 // ---- grade pass: saturation + warm shadow lift (my own shader) ----
 const GradeShader = {
@@ -174,6 +174,18 @@ vmHandL.group.position.set(0.005, -0.036, 0.22);
 // tetap di dalam/tersembunyi di balik handguard — benar secara visual.
 vmHandL.group.rotation.set(0, 0, Math.PI);
 vmRifle.group.add(vmHandL.group);
+// FIX 9 POIN P3 — full arms (forearm + elbow + upper arm, tactical sleeve
+// tan/olive, CS Dust reference). The arm is a child of the HAND group, so it
+// follows the hand during recoil / sway / reload / weapon switch. Direction
+// is in VM space: down + outward + toward the camera, so the arm runs to the
+// bottom corner and ALWAYS exits the frame (no cut stump, no open end).
+// updateMatrixWorld FIRST — buildArm converts the VM direction to hand-local
+// via the hand's world quaternion.
+// handR (trigger hand, right side): down-right toward the camera.
+// handL (support hand, handguard): down-left toward the camera.
+vmScene.updateMatrixWorld(true);
+const vmArmR = buildArm(vmHandR.group, new THREE.Vector3(0.35, -0.55, 0.30));
+const vmArmL = buildArm(vmHandL.group, new THREE.Vector3(-0.55, -0.55, 0.30));
 // viewmodel muzzle, for the flash
 const vmMuzzle = new THREE.Object3D();
 vmMuzzle.position.copy(vmRifle.muzzle.position);
@@ -195,7 +207,7 @@ game._vmMuzzle = vmMuzzle;
 
 // QC debug handle (9-point fix): exposes the viewmodel + THREE for close-up
 // probes and numeric socket tests. Gameplay-neutral (read-only handle).
-window.__vm = { rifle: vmRifle, handR: vmHandR, handL: vmHandL, camera: vmCamera, scene: vmScene, muzzle: vmMuzzle };
+window.__vm = { rifle: vmRifle, handR: vmHandR, handL: vmHandL, armR: vmArmR, armL: vmArmL, camera: vmCamera, scene: vmScene, muzzle: vmMuzzle };
 window.__THREE = THREE;
 
 // ---- input ----
