@@ -373,6 +373,64 @@ export function buildArm(handGroup, dirVM, opts = {}) {
 // petals washed into a ball in every round (R4-R6). Quads keep full opacity
 // and hard points, so they read at distance.
 let _flashTex = null;
+// DUEL-BOM (16 Nov): charge yang dipegang dua tangan di shot duel/arming
+// (Kilnyard-2 — pemain megang bom, bukan senapan). Prosedural penuh:
+// dua silinder hijau zaitun berdampingan (kayak charge ganda Kilnyard)
+// + panel oranye di atas silinder kanan + layar kecil + LED merah.
+// Sumbu panjang = Z (seperti senapan), tangan menempel di bawah tiap
+// silinder lewat anchor gripL/gripR. Tidak ada rng — deterministik.
+export function buildBomb() {
+  const g = new THREE.Group();
+  const greenMat = new THREE.MeshStandardMaterial({ color: 0x4a5d23, metalness: 0.15, roughness: 0.55 });
+  const greenDarkMat = new THREE.MeshStandardMaterial({ color: 0x2e3a16, metalness: 0.15, roughness: 0.6 });
+  const orangeMat = new THREE.MeshStandardMaterial({ color: 0xe06a1a, metalness: 0.1, roughness: 0.45 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.2, roughness: 0.6 });
+  const ledMat = new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0xff2a1a, emissiveIntensity: 1.2, roughness: 0.4 });
+  // dua silinder berdampingan, sumbu Z
+  for (const sx of [-0.058, 0.058]) {
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.34, 20), greenMat);
+    body.rotation.x = Math.PI / 2;
+    body.position.set(sx, 0, 0);
+    g.add(body);
+    // ring ujung lebih gelap (tutup + sambungan)
+    for (const ez of [-0.155, 0.155]) {
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.057, 0.025, 20), greenDarkMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(sx, 0, ez);
+      g.add(rim);
+    }
+  }
+  // panel oranye di atas silinder kanan — tipis (R2: 0.035 terlalu tebal,
+  // kebaca kotak peach; 0.025 + oranye lebih jenuh = lempeng panel)
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.22), orangeMat);
+  panel.position.set(0.058, 0.064, 0.02);
+  g.add(panel);
+  // layar kecil gelap di atas panel
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.07), darkMat);
+  screen.position.set(0.058, 0.081, -0.03);
+  g.add(screen);
+  // LED merah (charge aktif) di ujung depan panel — kecil + redup (R2:
+  // 0.009/2.0 kebaca pink karena bloom; 0.007/1.2 = titik merah)
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.007, 12, 8), ledMat);
+  led.position.set(0.058, 0.081, 0.09);
+  g.add(led);
+  // tali pengikat gelap di belakang panel — mengikat dua silinder jadi
+  // SATU charge (R1 kebaca dua drum lepas)
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.245, 0.13, 0.03), darkMat);
+  strap.position.set(0, 0, -0.10);
+  g.add(strap);
+  // anchor tangan: di SISI LUAR tiap silinder (R2: di bawah silinder
+  // tangan ketutup silinder + keluar frame bawah; di sisi luar, jari
+  // melingkar di dinding luar silinder dan kebaca kamera), sedikit maju
+  const gripL = new THREE.Object3D();
+  gripL.position.set(-0.105, -0.055, 0.06);
+  g.add(gripL);
+  const gripR = new THREE.Object3D();
+  gripR.position.set(0.105, -0.055, 0.06);
+  g.add(gripR);
+  return { group: g, gripL, gripR };
+}
+
 export function makeFlash(scale = 0.15, lightIntensity = 10) {
   if (!_flashTex) _flashTex = flashTex();
   const group = new THREE.Group();

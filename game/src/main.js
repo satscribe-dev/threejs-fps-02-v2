@@ -11,7 +11,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { Game } from './game.js';
 import { HUD } from './hud.js';
 import { AudioSys } from './audio.js';
-import { buildRifle, buildHand, buildArm } from './weapon.js';
+import { buildRifle, buildHand, buildArm, buildBomb } from './weapon.js';
 
 // ---- grade pass: saturation + warm shadow lift (my own shader) ----
 const GradeShader = {
@@ -214,6 +214,35 @@ const vmMuzzle = new THREE.Object3D();
 vmMuzzle.position.copy(vmRifle.muzzle.position);
 vmRifle.group.add(vmMuzzle);
 
+// DUEL-BOM (16 Nov): tangan megang BOM di shot duel/arming — Kilnyard-2
+// salah arti kemarin: bukan "shot bersih tanpa VM", pemainnya megang
+// charge (silinder hijau + panel oranye) sambil arming. Bom ini yang
+// tampil di duel; senapan disembunyikan di sana (Game.stage yang
+// menukar visible keduanya). Posisi R2: pojok kanan bawah, tengah
+// bom ~(0.36,-0.30,-0.95) = layar ~(908,583) di 1280x720 (hitung dari
+// FOV 54: setengah tinggi tampak di z -0.95 = 0.484 m, setengah lebar
+// 0.86 m) — kiri panel ammo DOM, seperti Kilnyard-2. Rotasi y -0.55
+// bikin sumbu bom diagonal di frame; tangan di bawah tiap silinder,
+// telapak ke atas (rotasi sama kayak support hand di handguard),
+// lengan ke bawah-luar sampai keluar frame.
+const vmBomb = buildBomb();
+vmBomb.group.position.set(0.36, -0.30, -0.95); // R2: lebih jauh + kecil (scale 0.85) — R1 dua drum raksasa menuhin pojok; kini seukuran bom Kilnyard-2
+vmBomb.group.scale.setScalar(0.85);
+vmBomb.group.rotation.set(0.10, -0.55, 0.10);
+vmBomb.group.visible = false; // hanya tampil di duel
+vmScene.add(vmBomb.group);
+const bombHandL = buildHand(0x17171a);
+bombHandL.group.position.copy(vmBomb.gripL.position);
+bombHandL.group.rotation.set(0, 0, Math.PI);
+vmBomb.group.add(bombHandL.group);
+const bombHandR = buildHand(0x17171a);
+bombHandR.group.position.copy(vmBomb.gripR.position);
+bombHandR.group.rotation.set(0, 0, Math.PI);
+vmBomb.group.add(bombHandR.group);
+vmScene.updateMatrixWorld(true);
+const bombArmL = buildArm(bombHandL.group, new THREE.Vector3(-0.55, -0.55, 0.30));
+const bombArmR = buildArm(bombHandR.group, new THREE.Vector3(0.35, -0.55, 0.30));
+
 // ---- post chain (proven order): Render -> GTAO -> Bloom -> Grade -> Output -> SMAA ----
 // FIX 9 POIN P8: GTAOPass di-wire (was vendored tapi tidak dipakai —
 // contact shadow tidak ada sama sekali; shadowMap juga tidak aktif, jadi
@@ -241,10 +270,12 @@ const hud = new HUD();
 const audio = new AudioSys();
 const game = new Game(scene, camera, vmScene, vmCamera, hud, audio);
 game._vmMuzzle = vmMuzzle;
+game._vmRifle = vmRifle; // DUEL-BOM: stage() menukar rifle <-> bom
+game._vmBomb = vmBomb;
 
 // QC debug handle (9-point fix): exposes the viewmodel + THREE for close-up
 // probes and numeric socket tests. Gameplay-neutral (read-only handle).
-window.__vm = { rifle: vmRifle, handR: vmHandR, handL: vmHandL, armR: vmArmR, armL: vmArmL, camera: vmCamera, scene: vmScene, muzzle: vmMuzzle };
+window.__vm = { rifle: vmRifle, handR: vmHandR, handL: vmHandL, armR: vmArmR, armL: vmArmL, camera: vmCamera, scene: vmScene, muzzle: vmMuzzle, bomb: vmBomb, bombHandL, bombHandR, bombArmL, bombArmR };
 window.__THREE = THREE;
 
 // ---- input ----

@@ -341,9 +341,12 @@ export class Game {
     this.reseed(20261116);
     this.frozen = true;
     this.effects.clear();
-    // CELAH 3: VM tampil di semua stage KECUALI duel (disembunyikan di
-    // cabang duel di bawah, seperti Kilnyard-2 yang bersih tanpa VM).
+    // DUEL-BOM: senapan tampil di semua stage KECUALI duel (di duel
+    // tangan megang bom, bukan senapan — Kilnyard-2). Bom disembunyikan
+    // di stage lain; cabang duel di bawah menukar keduanya.
     this.vmScene.visible = true;
+    if (this._vmRifle) this._vmRifle.group.visible = true;
+    if (this._vmBomb) this._vmBomb.group.visible = false;
     if (this._vmFlash) { this.vmScene.remove(this._vmFlash); this._vmFlash = null; }
     this.state = 'live';
     this.round = 9;
@@ -453,11 +456,12 @@ export class Game {
       for (const b of this.bots) if (b !== t1) b.soldier.group.position.set(30, 0, 30);
       this.hud.hint('Buy time: B opens the requisition menu');
     } else if (name === 'duel') {
-      // CELAH 3: sembunyikan viewmodel di shot duel/arming (Kilnyard-2
-      // bersih tanpa VM — scene + bar arming yang jadi fokus). spawnVmFlash
-      // di bawah tetap jalan tapi tidak kelihatan (flash hidup di vmScene,
-      // dibersihkan pas stage berikutnya masuk).
-      this.vmScene.visible = false;
+      // DUEL-BOM: senapan DISEMBUNYIKAN, tangan MEGANG BOM (Kilnyard-2:
+      // pemain megang charge hijau + panel oranye sambil arming, bukan
+      // senapan). Koreksi atas Celah 3 yang kemarin bikin frame kosong
+      // tanpa tangan (vmScene.visible=false). vmScene tetap tampil.
+      if (this._vmRifle) this._vmRifle.group.visible = false;
+      if (this._vmBomb) this._vmBomb.group.visible = true;
       // site B: player comes down the EAST lane (x>17, clear of the z=-3
       // container row), enemy guarding the charge, SITE B sign behind-right.
       // R2 put the player at (11,-1.5) — 0.3 m from the stacked container's
@@ -489,7 +493,11 @@ export class Game {
       // FIX ROUND: duel smoke REMOVED — its 5 puffs drifted west (toward the
       // camera) and covered the enemy's torso/head as a white stain. Kilnyard-2
       // has no smoke in the plant shot either; enemy + charge carry the duel.
-      this.spawnVmFlash();
+      // DUEL-BOM: spawnVmFlash DICABUT di duel — bintang flash VM hidup di
+      // posisi moncong senapan yang kini disembunyikan; kalau tetap jalan,
+      // bintangnya melayang di udara tepat di atas bom (pemain lagi arming,
+      // bukan nembak). Tracer pemain di bawah tetap jalan (world-space,
+      // tidak terikat VM).
       const dfrom = new THREE.Vector3(7, 1.55, -7);
       const ddir = new THREE.Vector3(13.5, 1.35, -8.5).sub(dfrom).normalize();
       this.spawnTracer(dfrom.clone().addScaledVector(ddir, 2), new THREE.Vector3(13.5, 1.35, -8.5));
