@@ -225,7 +225,13 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   // handguard (probe handL index 0.018 -> 0.024, GAGAL >2 cm). Jari 1-3
   // tetap lebar (-0.032/0.032/0.044): probe handL mereka tetap lolos
   // (0.012/0.002/0.014) dan probe handR tidak berubah.
-  const fingerX = [-0.038, -0.032, 0.032, 0.044];
+  // BOMB R2 (16 Nov): spread lebar di atas dirancang buat handguard senapan
+  // yang SEMPIT (0,05 m) — jari harus di dua sisi handguard. Buat BLOK BOM
+  // (0,17 m), tangan di SATU sisi: semua jari harus di sisi yang sama,
+  // dalam klaster sempit di dekat muka blok (±0,085). opts.fingerX menimpa
+  // spread default (nilai dicerminkan per tangan di main.js — kiri negatif,
+  // kanan positif — karena Rz(180) membalik sumbu X).
+  const fingerX = opts.fingerX ?? [-0.038, -0.032, 0.032, 0.044];
   // FIX 9 POIN P1 R5 (koreksi user 17:12 + ref CS Dust baru): jari di-STAGGER
   // sepanjang handguard (index paling depan, kelingking paling belakang) —
   // dari samping/3q, ke-4 jari ada di 4 titik berbeda sepanjang laras dan
@@ -270,8 +276,13 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   // rifle +X setelah rotasi tangan) — sebelumnya thumb di garis tengah grip
   // (x ~0.005) dan tersembunyi di balik grip dari kamera samping. Jempol
   // harus kebaca di sisi grip, seperti referensi CS.
+  // BOMB R2 (16 Nov): opts.thumbX menimpa posisi dasar jempol (default
+  // -0,030 — buat tangan senapan). Buat tangan bom, jempol harus di sisi
+  // LUAR blok (bukan menembus blok / melayang jauh) — dicerminkan per
+  // tangan di main.js (kiri +0,015 / kanan -0,015, atau 0 = tepat di
+  // luar muka blok).
   const thumbBase = new THREE.Group();
-  thumbBase.position.set(-0.030, -0.035, 0.01);
+  thumbBase.position.set(opts.thumbX ?? -0.030, -0.035, 0.01);
   thumbBase.rotation.set(0.5, 0, 0.9);
   g.add(thumbBase);
   const th1 = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.03), 0.012, gloveMat);
@@ -373,60 +384,98 @@ export function buildArm(handGroup, dirVM, opts = {}) {
 // petals washed into a ball in every round (R4-R6). Quads keep full opacity
 // and hard points, so they read at distance.
 let _flashTex = null;
-// DUEL-BOM (16 Nov): charge yang dipegang dua tangan di shot duel/arming
-// (Kilnyard-2 — pemain megang bom, bukan senapan). Prosedural penuh:
-// dua silinder hijau zaitun berdampingan (kayak charge ganda Kilnyard)
-// + panel oranye di atas silinder kanan + layar kecil + LED merah.
-// Sumbu panjang = Z (seperti senapan), tangan menempel di bawah tiap
-// silinder lewat anchor gripL/gripR. Tidak ada rng — deterministik.
+// BOMB R2 (16 Nov) — blok charge C4-style, BUKAN dua drum raksasa.
+// Koreksi user 23:17 + 23:24 WIB: bom lama (dua silinder hijau mulus +
+// panel peach polos) kebaca kayak teropong, tanpa timer. Dan timer baru
+// NYALA setelah di-plant — Kilnyard-2 lagi PLANTING (bar ~55%), jadi di
+// shot arming ini layar timer HARUS GELAP/MATI, bukan nyala merah.
+// Yang dibangun: SATU blok charge persegi (olive drab, tutup ujung gelap)
+// + unit timer di atas (layar kaca GELAP — hardware ada, mati; keypad
+// 3x3 tombol; LED merah GELAP tanpa emissive) + kabel + tali pengikat.
+// Sumbu panjang = Z (seperti senapan); tangan megang di sisi blok lewat
+// anchor gripL/gripR. Prosedural penuh, tidak ada rng — deterministik.
 export function buildBomb() {
   const g = new THREE.Group();
-  const greenMat = new THREE.MeshStandardMaterial({ color: 0x4a5d23, metalness: 0.15, roughness: 0.55 });
-  const greenDarkMat = new THREE.MeshStandardMaterial({ color: 0x2e3a16, metalness: 0.15, roughness: 0.6 });
-  const orangeMat = new THREE.MeshStandardMaterial({ color: 0xe06a1a, metalness: 0.1, roughness: 0.45 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.2, roughness: 0.6 });
-  const ledMat = new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0xff2a1a, emissiveIntensity: 1.2, roughness: 0.4 });
-  // dua silinder berdampingan, sumbu Z
-  for (const sx of [-0.058, 0.058]) {
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.34, 20), greenMat);
-    body.rotation.x = Math.PI / 2;
-    body.position.set(sx, 0, 0);
-    g.add(body);
-    // ring ujung lebih gelap (tutup + sambungan)
-    for (const ez of [-0.155, 0.155]) {
-      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.057, 0.025, 20), greenDarkMat);
-      rim.rotation.x = Math.PI / 2;
-      rim.position.set(sx, 0, ez);
-      g.add(rim);
+  const oliveMat = new THREE.MeshStandardMaterial({ color: 0x44521f, metalness: 0.15, roughness: 0.55 });
+  const oliveDarkMat = new THREE.MeshStandardMaterial({ color: 0x2e3a16, metalness: 0.15, roughness: 0.6 });
+  const housingMat = new THREE.MeshStandardMaterial({ color: 0x2a2c2e, metalness: 0.3, roughness: 0.5 });
+  const screenMat = new THREE.MeshStandardMaterial({ color: 0x11161c, metalness: 0.4, roughness: 0.2 });
+  const bezelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.2, roughness: 0.6 });
+  const buttonMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, metalness: 0.2, roughness: 0.5 });
+  const buttonTopMat = new THREE.MeshStandardMaterial({ color: 0x55585c, metalness: 0.2, roughness: 0.45 });
+  const ledOffMat = new THREE.MeshStandardMaterial({ color: 0x330000, metalness: 0.1, roughness: 0.4 });
+  const cableRedMat = new THREE.MeshStandardMaterial({ color: 0x5a1a1a, metalness: 0.0, roughness: 0.6 });
+  const cableBlackMat = new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.0, roughness: 0.6 });
+  // 1. badan charge: SATU blok persegi (chamfer), bukan dua drum.
+  const body = chamferBox(0.17, 0.10, 0.30, 0.015, oliveMat);
+  g.add(body);
+  // 2. tutup ujung lebih gelap (depan + belakang)
+  for (const ez of [-0.15, 0.15]) {
+    const cap = box(0.172, 0.102, 0.012, oliveDarkMat);
+    cap.position.set(0, 0, ez);
+    g.add(cap);
+  }
+  // 3. tali pengikat gelap di tengah — mengikat blok jadi SATU charge
+  const strap = box(0.176, 0.106, 0.03, bezelMat);
+  strap.position.set(0, 0, -0.08);
+  g.add(strap);
+  // 4. unit timer di atas blok: housing gelap + layar kaca GELAP (mati) +
+  // keypad 3x3 + LED merah GELAP (tanpa emissive — timer baru nyala abis
+  // plant, bukan pas arming). Layar cukup besar buat kebaca sebagai layar
+  // timer, tapi GELAP: kaca 0x11161c, roughness 0.2 — cuma kilau samar
+  // dari lampu VM, tanpa angka, tanpa cahaya.
+  const housing = box(0.13, 0.03, 0.17, housingMat);
+  housing.position.set(0, 0.065, 0.01);
+  g.add(housing);
+  // bezel layar: lempeng gelap di bawah layar (bingkai)
+  const bezel = box(0.09, 0.006, 0.07, bezelMat);
+  bezel.position.set(0, 0.082, -0.045);
+  g.add(bezel);
+  // layar timer GELAP (mati)
+  const screen = box(0.08, 0.006, 0.06, screenMat);
+  screen.position.set(0, 0.084, -0.045);
+  g.add(screen);
+  // keypad 3x3 tombol kecil di belakang layar (dua warna berselang biar
+  // tiap tombol kebaca terpisah, bukan satu lempeng)
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const key = box(0.02, 0.007, 0.02, (r + c) % 2 === 0 ? buttonMat : buttonTopMat);
+      key.position.set(-0.026 + c * 0.026, 0.083, 0.03 + r * 0.026);
+      g.add(key);
     }
   }
-  // panel oranye di atas silinder kanan — tipis (R2: 0.035 terlalu tebal,
-  // kebaca kotak peach; 0.025 + oranye lebih jenuh = lempeng panel)
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.22), orangeMat);
-  panel.position.set(0.058, 0.064, 0.02);
-  g.add(panel);
-  // layar kecil gelap di atas panel
-  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.07), darkMat);
-  screen.position.set(0.058, 0.081, -0.03);
-  g.add(screen);
-  // LED merah (charge aktif) di ujung depan panel — kecil + redup (R2:
-  // 0.009/2.0 kebaca pink karena bloom; 0.007/1.2 = titik merah)
-  const led = new THREE.Mesh(new THREE.SphereGeometry(0.007, 12, 8), ledMat);
-  led.position.set(0.058, 0.081, 0.09);
+  // LED merah GELAP (mati) di ujung depan housing
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.005, 10, 8), ledOffMat);
+  led.position.set(0.05, 0.082, 0.085);
   g.add(led);
-  // tali pengikat gelap di belakang panel — mengikat dua silinder jadi
-  // SATU charge (R1 kebaca dua drum lepas)
-  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.245, 0.13, 0.03), darkMat);
-  strap.position.set(0, 0, -0.10);
-  g.add(strap);
-  // anchor tangan: di SISI LUAR tiap silinder (R2: di bawah silinder
-  // tangan ketutup silinder + keluar frame bawah; di sisi luar, jari
-  // melingkar di dinding luar silinder dan kebaca kamera), sedikit maju
+  // 5. kabel merah + hitam dari housing turun ke sisi kanan blok
+  const cable = (mat, x) => {
+    const v = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.07, 8), mat);
+    v.position.set(x, 0.03, 0.06);
+    g.add(v);
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8), mat);
+    h.rotation.x = Math.PI / 2;
+    h.position.set(x, -0.005, 0.0);
+    g.add(h);
+  };
+  cable(cableRedMat, 0.088);
+  cable(cableBlackMat, 0.096);
+  // anchor tangan: di SISI blok (x ±0.105), telapak di bawah sisi blok,
+  // jari melingkar ke atas melewati sisi blok dan kebaca kamera. (R2 lama:
+  // anchor di bawah silinder — tangan ketutup; di sisi luar, jari kebaca.)
+  // BOMB R2: anchor naik y -0.05 -> -0.02 — ujung jari (naik ~0,06 dari
+  // pivot) kini di y ~0,04, dekat tepi atas blok (0,05), jadi jari
+  // mengait ke tepi atas, bukan berhenti di tengah sisi blok.
+  // BOMB R3: anchor naik lagi y -0.02 -> 0.00 — ujung jari kini di
+  // y ~0,06, MELEWATI tepi atas (0,05): jari mengait ke atas tepi,
+  // bukan cuma menunjuk ke atas di samping blok (R2: di close-up depan
+  // jari kebaca seperti cakar, bukan genggaman). Telapak kini di
+  // tengah sisi blok (y 0,00), menempel di muka blok.
   const gripL = new THREE.Object3D();
-  gripL.position.set(-0.105, -0.055, 0.06);
+  gripL.position.set(-0.105, 0.00, 0.05);
   g.add(gripL);
   const gripR = new THREE.Object3D();
-  gripR.position.set(0.105, -0.055, 0.06);
+  gripR.position.set(0.105, 0.00, 0.05);
   g.add(gripR);
   return { group: g, gripL, gripR };
 }

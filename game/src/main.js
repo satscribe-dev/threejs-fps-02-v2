@@ -231,11 +231,11 @@ vmBomb.group.scale.setScalar(0.85);
 vmBomb.group.rotation.set(0.10, -0.55, 0.10);
 vmBomb.group.visible = false; // hanya tampil di duel
 vmScene.add(vmBomb.group);
-const bombHandL = buildHand(0x17171a);
+const bombHandL = buildHand(0x17171a, undefined, { fingerX: [-0.016, -0.011, -0.006, -0.001], thumbX: 0 }); // BOMB R2: klaster jari sempit di sisi kiri blok (pivot x -0.089..-0.104, muka blok -0.085) + jempol di luar muka blok
 bombHandL.group.position.copy(vmBomb.gripL.position);
 bombHandL.group.rotation.set(0, 0, Math.PI);
 vmBomb.group.add(bombHandL.group);
-const bombHandR = buildHand(0x17171a);
+const bombHandR = buildHand(0x17171a, undefined, { fingerX: [0.016, 0.011, 0.006, 0.001], thumbX: 0 }); // BOMB R2: cermin tangan kiri (pivot x 0.089..0.104, muka blok 0.085)
 bombHandR.group.position.copy(vmBomb.gripR.position);
 bombHandR.group.rotation.set(0, 0, Math.PI);
 vmBomb.group.add(bombHandR.group);
