@@ -115,13 +115,33 @@ vmRifle.group.position.set(0.44, -0.38, -1.3);
 vmRifle.group.rotation.set(0.12, -0.03, 0.02);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
+// FIX HAND (16 Nov): the trigger hand DANGLLED below the pistol grip and the
+// support hand floated behind the foregrip. Probe-verified (node probe, rifle
+// space): old trigger fingertips 0.039-0.051 m from the grip, BELOW its bottom
+// edge; old support fingertips 0.061-0.081 m behind the foregrip. A pistol grip
+// is a vertical bar, so the finger-curl plane must be HORIZONTAL (perp. to the
+// grip axis) with the knuckle line ALONG the grip axis: R = Rx(grip tilt) *
+// Rz(+90deg). The hand origin is offset so the grip sits inside the finger
+// hook. After the fix (same probe): trigger fingertips 0.000-0.007 m from the
+// grip surface, support fingertips 0.001-0.021 m from the foregrip, palms in
+// contact with the grip's back-left corner. Do NOT move the rifle itself.
 const vmHandR = buildHand(0x4a4438);
-vmHandR.group.position.copy(vmRifle.gripSocket.position);
-vmHandR.group.rotation.set(0.5, 0, -0.35);
+vmHandR.group.position.copy(vmRifle.gripSocket.position).add(new THREE.Vector3(-0.038, 0.034, -0.064));
+vmHandR.group.rotation.set(0.35, 0, Math.PI / 2);
 vmRifle.group.add(vmHandR.group);
 const vmHandL = buildHand(0x4a4438);
-vmHandL.group.position.copy(vmRifle.supportSocket.position);
-vmHandL.group.rotation.set(0.85, Math.PI, 0.25);
+// FIX HANDGUARD (16 Nov, referensi CS user 13:36 WIB): tangan support HARUS
+// menggenggam HANDGUARD seperti referensi — jari melengkung KE ATAS melewati
+// rel atas, jempol di sisi samping. Bukan di foregrip vertikal (pose lama:
+// jari melayang 0.06-0.08 m di belakang foregrip). Handguard itu bar horizontal,
+// jadi bidang curl jari harus vertikal melintang sumbu laras: R = Rx(-90deg) *
+// Rz(-90deg) -> jari menunjuk ke ATAS, melengkung ke sisi kiri melewati rel.
+// Probe-verified: ujung jari 0.012-0.018 m DI ATAS rel atas (kelihatan di atas
+// rel, seperti referensi), telapak menempel di sisi kanan handguard (d=0.019 m).
+// Posisi langsung di handguard (bukan supportSocket foregrip); foregrip tetap
+// ada sebagai prop, kosong.
+vmHandL.group.position.set(0.05, -0.02, 0.27);
+vmHandL.group.rotation.set(-Math.PI / 2, 0, -Math.PI / 2);
 vmRifle.group.add(vmHandL.group);
 // viewmodel muzzle, for the flash
 const vmMuzzle = new THREE.Object3D();
