@@ -436,7 +436,12 @@ export class Game {
       // yang baru (-0.42,1.35,5); titik awal dihitung ulang untuk pitch
       // -0.04: (0.278,1.240,10.159) unproject ke moncong (741,440) di
       // 1,9 m (metode sama, validasi nilai lama persis).
-      this.spawnTracer(new THREE.Vector3(0.278, 1.240, 10.159), new THREE.Vector3(-0.42, 1.35, 5));
+      // GAP A+B R2 (16 Nov): VM pindah (moncong kini (777,546), dCross
+      // 231 px — dekat Kilnyard ~230) — titik awal dihitung ulang:
+      // (0.389,0.886,10.291) unproject ke moncong (777,546) di 1,9 m
+      // (tracer-start.mjs, metode sama, validasi nilai lama persis).
+      // Tracer kini ~231 px dari moncong ke crosshair/dada e1.
+      this.spawnTracer(new THREE.Vector3(0.389, 0.886, 10.291), new THREE.Vector3(-0.42, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';

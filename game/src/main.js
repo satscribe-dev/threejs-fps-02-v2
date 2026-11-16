@@ -35,9 +35,14 @@ function makeSky() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      top: { value: new THREE.Color(0x2a1e3a) },
-      mid: { value: new THREE.Color(0x8a4a3a) },
-      horizon: { value: new THREE.Color(0xe07848) },
+      // GAP C R1 (16 Nov): langit dusk LEBIH DALAM (merah) — Kilnyard
+      // punya langit merah dalam, ours oranye datar. top lebih gelap,
+      // mid merah dalam (bukan coklat), horizon merah-oranye dalam
+      // (bukan peach). Fog + lampu ikut dimerahkan supaya suasana
+      // konsisten (fog = warna horizon).
+      top: { value: new THREE.Color(0x1c0f2a) },
+      mid: { value: new THREE.Color(0x6e2430) },
+      horizon: { value: new THREE.Color(0xd8482a) }, // GAP C R2: horizon sedikit lebih terang/oranye (Kilnyard punya pita horizon merah-oranye yang menyala, ours R1 terlalu gelap merata)
       sunDir: { value: new THREE.Vector3(-0.9, 0.14, -0.35).normalize() },
     },
     vertexShader: `varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
@@ -54,8 +59,8 @@ function makeSky() {
         float band2 = smoothstep(0.52, 0.58, h) * (1.0 - smoothstep(0.66, 0.74, h));
         col *= 1.0 - 0.10 * band1 - 0.08 * band2;
         float s = max(dot(normalize(vDir), sunDir), 0.0);
-        col += vec3(1.0, 0.55, 0.25) * pow(s, 90.0) * 0.4;   // sun disc
-        col += vec3(1.0, 0.45, 0.18) * pow(s, 6.0) * 0.03;   // haze around the sun
+        col += vec3(1.0, 0.35, 0.15) * pow(s, 90.0) * 0.4;   // sun disc (GAP C R1: lebih merah)
+        col += vec3(1.0, 0.30, 0.12) * pow(s, 6.0) * 0.05;   // haze around the sun (GAP C R2: 0.03 -> 0.05, glow matahari lebih kebaca di kiri langit)
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -73,7 +78,7 @@ renderer.toneMappingExposure = 1.05;
 document.getElementById('app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xb0705a, 26, 65); // fog colour = horizon colour
+scene.fog = new THREE.Fog(0x9a4a38, 26, 65); // fog colour = horizon colour (GAP C R1: merah dalam)
 const sky = makeSky();
 scene.add(sky);
 
@@ -87,13 +92,13 @@ scene.add(sky);
 }
 
 // ---- lights: low warm sun + hemisphere fill + cool rim (proven position) ----
-const sun = new THREE.DirectionalLight(0xffb070, 3.0);
+const sun = new THREE.DirectionalLight(0xff7040, 3.0); // GAP C R1: matahari lebih merah
 sun.position.set(-36, 5.6, -14);
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x8a6a9a, 0x4a3628, 0.7));
+scene.add(new THREE.HemisphereLight(0x8a3a4a, 0x4a3628, 0.7)); // GAP C R1: langit hemisphere lebih merah
 // camera fill: warm light from behind the player so faces/fronts that turn
 // away from the low sun stay readable instead of going black
-const fill = new THREE.DirectionalLight(0xffd0a0, 0.45);
+const fill = new THREE.DirectionalLight(0xffb080, 0.45); // GAP C R1: fill sedikit lebih merah
 fill.position.set(0, 5, 25);
 scene.add(fill);
 const rim = new THREE.DirectionalLight(0x8a9ac0, 0.4);
@@ -157,7 +162,7 @@ const vmRifle = buildRifle({ skin: true }); // CELAH 1 + SKIN: skin hanya di vie
 // Butt (1083,665) kini masuk frame (baseline 1275,736 terpotong tepi) —
 // dicek di combat shot R1: kalau massa stock masih terlalu gede, dorong
 // y lebih negatif di R2.
-vmRifle.group.position.set(0.42, -0.30, -0.85); // POPOR R1: kanan +0.06, bawah -0.04, maju +0.05 — popor keluar frame bawah/kanan (Kilnyard: senapan ke-crop di pojok, cuma laras + tangan yang kelihatan)
+vmRifle.group.position.set(0.60, -0.64, -1.45); // GAP A+B R2 (16 Nov): R1 mencapai wFrac 0.19 TAPI popor REGRESI — popor kembali masuk frame (996,628) karena senapan mengecil. Dorong ke bawah (y -0.42 -> -0.64, ~107 px) + kanan (x 0.55 -> 0.60) supaya popor keluar frame bawah lagi; moncong ikut ke pojok (dCross ~250 px, dekat Kilnyard ~230) = tracer makin panjang. Skala + rotasi tetap.
 vmRifle.group.rotation.set(0.38, -2.60, 0); // POPOR R1: pitch 0.30->0.38 — moncong naik ke arah crosshair, popor turun makin keluar
 vmRifle.group.scale.setScalar(0.85);
 vmScene.add(vmRifle.group);
