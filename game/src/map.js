@@ -156,6 +156,24 @@ export function buildMap(scene, rng) {
     }
   });
 
+  // billboard KILN HALL di ATAS stack kontainer 2-tingkat (10.5,-3) — nama
+  // landmark ke-2. Tembok utara di kanan tersembunyi di balik stack ini dari
+  // kamera combat, jadi namanya naik ke atas stack (atap 5.2 m, sign di
+  // y 6.8, 8 m lebar ~150 px, dua tiang penyangga). Sinar ke sign lewat
+  // z=5.5 di x 4.5 / tinggi 3.72 m — lolos dari kontainer depan (16,5.5).
+  const kilnBoard = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 3),
+    new THREE.MeshStandardMaterial({ map: signTex('KILN HALL', 'SITE A'), roughness: 0.7 }),
+  );
+  kilnBoard.position.set(10.5, 6.8, -3);
+  map.add(kilnBoard);
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8, metalness: 0.4 });
+  for (const px of [7.5, 13.5]) {
+    const post = box(0.15, 1.6, 0.15, postMat);
+    post.position.set(px, 6.0, -3);
+    map.add(post);
+  }
+
   // ---- perimeter + mid brick walls ----
   const brick = brickTex(11);
   brick.repeat.set(6, 2);
@@ -186,7 +204,12 @@ export function buildMap(scene, rng) {
     map.add(m);
     return m;
   }
-  sign('CINDERLINE', 'YARD 07', 6, 0, 4.6, -23.6, 0);
+  sign('CINDERLINE', 'YARD 07', 10, 0, 4.3, -23.6, 0); // CELAH 2: was 6 m — di combat 35 m jauhnya cuma ~115 px; 10 m -> ~190 px, bagian atas menonjol di atas tembok seperti billboard
+  // (R4: sign KILN HALL di tembok x 20 DIHAPUS — tersembunyi di balik stack
+  // kontainer 2-tingkat (10.5,-3): sinar ke tembok x 20 lewat z=-3 di x 8.4,
+  // di dalam rentang stack 4.4-16.6 yang tingginya 5.2 m. Tembok kanan
+  // praktis tidak kelihatan dari kamera combat; pindah jadi billboard di
+  // ATAS stack — lihat di bawah, dekat kontainer.)
   sign('SITE A', 'KILN HALL', 3.2, -20, 3.2, -13.7, 0);
   sign('SITE B', 'GLAZE COURT', 3.2, 18, 3.2, -15.7, 0);
 
@@ -429,6 +452,107 @@ export function buildMap(scene, rng) {
       4.5 + along * caz + Math.cos(t * Math.PI * 10) * 0.15 * cpz));
   }
   for (let i = 0; i < wirePts2.length - 1; i++) map.add(tube(wirePts2[i], wirePts2[i + 1], 0.02, wireMat, 5)); // R3: radius 0.012 -> 0.02 (di R2 terlalu tipis, tidak kebaca)
+
+  // ---- CELAH 2 (density/mood): combat view tipis di mid-ground, langit
+  // flat oranye. Kilnyard-0 punya sign dinding besar, dumpster hijau,
+  // planter, asap, tracer nyebrang, langit dalam + siluet. Tambahan di sini
+  // (semuanya di dalam frame kamera combat (0,12) melihat utara):
+  // cerobong kiln bata + kolom asap (landmark besar ke-2, horizon kanan),
+  // siluet gedung di balik tembok utara, dumpster hijau + tumpukan crate
+  // (mid kanan), planter + semak (mid kiri). Posisi dijauhi dari: jalur
+  // tracer pemain ke e1, spawn musuh, site A/B, genangan.
+  const chimMat = new THREE.MeshStandardMaterial({ color: 0x7a4a38, roughness: 0.9 });
+  const chimney = new THREE.Group();
+  chimney.position.set(26, 0, -20);
+  const chimBase = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.2, 2.5, 14), chimMat);
+  chimBase.position.y = 1.25;
+  chimney.add(chimBase);
+  const chimStack = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.35, 11.5, 14), chimMat);
+  chimStack.position.y = 8.25;
+  chimney.add(chimStack);
+  const chimCap = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.05, 0.7, 14),
+    new THREE.MeshStandardMaterial({ color: 0x3a2a24, roughness: 0.9 }));
+  chimCap.position.y = 14.1;
+  chimney.add(chimCap);
+  // (R3: sign KILN HALL di stack dihapus — 2.2 m di 41 m cuma 16x7 px,
+  // tidak kebaca; namanya pindah ke tembok utara, 8 m, lihat sign() di atas)
+  map.add(chimney);
+  // kolom asap dari cerobong: THREE.Points + softDiscTex, 3 lapis ukuran
+  // (2.5/3.5/4.5 m) yang melebar + memudar sambil hanyut ke timur.
+  // BUKAN Sprite: sprite transparan DIHITAMKAN GTAO jadi kotak hitam —
+  // terbukti diagnostik A-F (tekstur terang, fog=false tetap hitam,
+  // map=null tetap hitam, depthWrite=true tetap hitam, di VM tanpa composer
+  // terang; mesh sphere terang; Points terang + lembut). Satu lapis = satu
+  // Points (PointsMaterial cuma punya satu size); jitter pakai rng() seed
+  // buildMap supaya deterministik.
+  const chimPuffTex = softDiscTex('rgba(216,207,196,0.9)', 'rgba(216,207,196,0)');
+  function smokePuffs(size, n, y0, spread, opacity) {
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = 26 + i * 0.45 + (rng() - 0.5) * spread;
+      pos[i * 3 + 1] = y0 + i * 1.3 + (rng() - 0.5) * 0.6;
+      pos[i * 3 + 2] = -20 - i * 0.2 + (rng() - 0.5) * spread;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      size, sizeAttenuation: true, map: chimPuffTex, transparent: true,
+      opacity, depthWrite: false, color: 0xd8cfc4,
+    }));
+    pts.frustumCulled = false;
+    map.add(pts);
+  }
+  smokePuffs(2.5, 4, 14.5, 0.8, 0.55);
+  smokePuffs(3.5, 4, 17.5, 1.6, 0.45);
+  smokePuffs(4.5, 4, 20.5, 2.4, 0.4);
+  // siluet gedung di horizon, di balik tembok utara (z -31..-34, 43-46 m
+  // dari kamera combat — fog 26-65 meredam ~45%, jadi bayangan gelap yang
+  // kalem, bukan kotak hitam pekat). Menjulang 4-10 m di atas tembok 5 m.
+  const silMat = new THREE.MeshStandardMaterial({ color: 0x2e2622, roughness: 1 });
+  function silhouette(x, z, w, h, d) {
+    const m = box(w, h, d, silMat);
+    m.position.set(x, h / 2, z);
+    map.add(m);
+  }
+  silhouette(-8, -32, 10, 12, 8);
+  silhouette(8, -34, 14, 9, 8);
+  silhouette(20, -31, 8, 15, 8);
+  silhouette(-20, -33, 7, 10, 7);
+  // dumpster hijau (Kilnyard-0: dumpster hijau gelap di mid kanan) — badan
+  // + tutup yang sedikit terbuka
+  const dumpMat = new THREE.MeshStandardMaterial({ color: 0x2a4a34, metalness: 0.3, roughness: 0.6 });
+  const dumpster = new THREE.Group();
+  const dBody = box(2.2, 1.15, 1.2, dumpMat);
+  dBody.position.y = 0.58;
+  dumpster.add(dBody);
+  const dLid = box(2.2, 0.08, 1.2, new THREE.MeshStandardMaterial({ color: 0x35583e, metalness: 0.3, roughness: 0.6 }));
+  dLid.position.set(0, 1.25, -0.15);
+  dLid.rotation.x = -0.18;
+  dumpster.add(dLid);
+  dumpster.position.set(8.5, 0, -1.5);
+  dumpster.rotation.y = -0.15;
+  map.add(dumpster);
+  // planter + semak (Kilnyard-0: planter bersemak di mid kiri) — bak beton
+  // rendah + 4 bola semak hijau gelap
+  const planter = new THREE.Group();
+  const pBox = chamferBox(1.8, 0.5, 0.7, 0.05, new THREE.MeshStandardMaterial({ color: 0x6a6a62, roughness: 0.9 }));
+  pBox.position.y = 0.25;
+  planter.add(pBox);
+  const shrubMat = new THREE.MeshStandardMaterial({ color: 0x2a4a26, roughness: 1 });
+  for (const [sx, sr] of [[-0.6, 0.42], [-0.15, 0.35], [0.3, 0.45], [0.7, 0.33]]) {
+    const sh = ball(sr, shrubMat);
+    sh.position.set(sx, 0.55 + sr * 0.4, 0);
+    sh.scale.y = 0.85;
+    planter.add(sh);
+  }
+  planter.position.set(-7.5, 0, 3);
+  planter.rotation.y = 0.2;
+  map.add(planter);
+  // tumpukan crate kayu (mid kanan, di depan drum dekat pemain) — 1,2 m +
+  // 0,9 m di atasnya; dijauhi dari barikade (4,2.5) + jalur tracer
+  crate(5, -0.5, 1.2, 0.15);
+  const cTop = crate(5, -0.5, 0.9, 0.5);
+  cTop.position.y = 1.65;
 
   // ---- site floors ----
   // Site A: green tiles (Kilnyard shot 2) + charge device

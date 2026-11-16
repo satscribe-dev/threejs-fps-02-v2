@@ -46,6 +46,13 @@ function makeSky() {
       void main() {
         float h = clamp(vDir.y, -0.08, 1.0);
         vec3 col = h < 0.18 ? mix(horizon, mid, smoothstep(0.0, 0.18, h)) : mix(mid, top, smoothstep(0.18, 0.65, h));
+        // CELAH 2: dua band awan gelap yang halus — kamera combat melihat
+        // h 0..0,35, di mana gradien lama cuma lereng oranye tanpa fitur.
+        // Band mengikuti elevasi saja (tanpa azimuth), 8-10%, supaya langit
+        // punya kedalaman tanpa jadi mendung.
+        float band1 = smoothstep(0.22, 0.30, h) * (1.0 - smoothstep(0.38, 0.46, h));
+        float band2 = smoothstep(0.52, 0.58, h) * (1.0 - smoothstep(0.66, 0.74, h));
+        col *= 1.0 - 0.10 * band1 - 0.08 * band2;
         float s = max(dot(normalize(vDir), sunDir), 0.0);
         col += vec3(1.0, 0.55, 0.25) * pow(s, 90.0) * 0.4;   // sun disc
         col += vec3(1.0, 0.45, 0.18) * pow(s, 6.0) * 0.03;   // haze around the sun
