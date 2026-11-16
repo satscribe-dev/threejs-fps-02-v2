@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
@@ -191,9 +192,23 @@ const vmMuzzle = new THREE.Object3D();
 vmMuzzle.position.copy(vmRifle.muzzle.position);
 vmRifle.group.add(vmMuzzle);
 
-// ---- post chain (proven order): Render -> Bloom -> Grade -> Output -> SMAA ----
+// ---- post chain (proven order): Render -> GTAO -> Bloom -> Grade -> Output -> SMAA ----
+// FIX 9 POIN P8: GTAOPass di-wire (was vendored tapi tidak dipakai —
+// contact shadow tidak ada sama sekali; shadowMap juga tidak aktif, jadi
+// GTAO adalah SATU-SATUNYA contact shadow). GTAO jalan di QUARTER-res
+// (320x180): AO itu efek low-frequency, dan SwiftShader lambat — full-res
+// GTAO akan melipatgandakan waktu render per frame. setSize di-wrap supaya
+// composer.setSize (full-res) tidak menaikkan GTAO ke full-res. Radius
+// default 0.25 m = contact darkening (sepatu ke lantai, crate ke tanah).
+// Pass order sesuai brief: Render -> GTAO -> Bloom -> Grade -> Output -> SMAA.
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
+const gtaoPass = new GTAOPass(scene, camera, Math.floor(innerWidth / 4), Math.floor(innerHeight / 4));
+gtaoPass.output = GTAOPass.OUTPUT.Default;
+gtaoPass.blendIntensity = 1.3; // R2: was 1.0 — di R1 efeknya terlalu samar (scene dusk sudah gelap, kontak tidak kebaca); 1.3 = kontak lebih tegas, belum hitam pekat
+const _gtaoSetSize = gtaoPass.setSize.bind(gtaoPass);
+gtaoPass.setSize = (w, h) => _gtaoSetSize(Math.max(2, Math.floor(w / 4)), Math.max(2, Math.floor(h / 4)));
+composer.addPass(gtaoPass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.4, 0.55, 0.88);
 composer.addPass(bloom);
 composer.addPass(new ShaderPass(GradeShader));
