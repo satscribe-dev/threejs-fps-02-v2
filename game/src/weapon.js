@@ -67,7 +67,7 @@ export function buildRifle(opts = {}) {
   // FIX 9 POIN P2 R2: trigger blade silver (was steelDark near-black) — the
   // black index finger ON a black trigger was invisible; a silver blade makes
   // the finger-on-trigger read, and a real trigger is often a distinct finish.
-  const trig = box(0.008, 0.035, 0.012, MAT.bolt);
+  const trig = box(0.012, 0.042, 0.012, MAT.bolt);
   trig.rotation.x = 0.2; add(trig, 0, -0.055, -0.045);
   const guard = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.005, 8, 16, Math.PI), MAT.steelDark);
   guard.rotation.set(0, Math.PI / 2, 0); guard.rotation.z = Math.PI;
@@ -168,7 +168,12 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   // The spread puts the near-side fingers on the camera side of the handguard
   // and the far-side fingers at the far edge, tips peeking over the rail.
   const fingerLen = [0.075, 0.085, 0.08, 0.06];
-  const fingerX = [-0.038, -0.028, 0.028, 0.038];
+  // FIX 9 POIN P2 R4: index KEMBALI ke -0.038 (was -0.044 di R3) — R3
+  // melebarkan spread index ikut menggeser ujung jari tangan KIRI keluar
+  // handguard (probe handL index 0.018 -> 0.024, GAGAL >2 cm). Jari 1-3
+  // tetap lebar (-0.032/0.032/0.044): probe handL mereka tetap lolos
+  // (0.012/0.002/0.014) dan probe handR tidak berubah.
+  const fingerX = [-0.038, -0.032, 0.032, 0.044];
   // FIX 9 POIN P1 R5 (koreksi user 17:12 + ref CS Dust baru): jari di-STAGGER
   // sepanjang handguard (index paling depan, kelingking paling belakang) —
   // dari samping/3q, ke-4 jari ada di 4 titik berbeda sepanjang laras dan
@@ -195,7 +200,7 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
       seg.position.set(0, 0, s === 0 ? 0 : lens[s - 1]);
       seg.rotation.x = s === 0 ? 0 : curls[s - 1];
       parent.add(seg);
-      const cap = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, lens[s]), 0.0115 - s * 0.0015, gloveMat);
+      const cap = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, lens[s]), 0.0095 - s * 0.0012, gloveMat);
       seg.add(cap);
       segs.push(seg);
       parent = seg;
@@ -209,8 +214,12 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
     fingers.push({ pivot, segs });
   }
   // thumb: starts at the palm side near the wrist, points across the grip
+  // FIX 9 POIN P2 R3: thumb base ke sisi KAMERA (hand-local y -0.035 ->
+  // rifle +X setelah rotasi tangan) — sebelumnya thumb di garis tengah grip
+  // (x ~0.005) dan tersembunyi di balik grip dari kamera samping. Jempol
+  // harus kebaca di sisi grip, seperti referensi CS.
   const thumbBase = new THREE.Group();
-  thumbBase.position.set(-0.042, -0.005, 0.01);
+  thumbBase.position.set(-0.030, -0.035, 0.01);
   thumbBase.rotation.set(0.5, 0, 0.9);
   g.add(thumbBase);
   const th1 = capsule(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.03), 0.012, gloveMat);
@@ -222,7 +231,10 @@ export function buildHand(glove = 0x17171a, skin = 0x8a6f56, opts = {}) {
   // cuff + sleeve at the wrist: longer than before so the forearm reads as
   // part of the glove mass (CS: the sleeve runs from the wrist to the frame
   // edge). The cuff is on the hand's -Z side, away from the fingers.
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.10, 12), gloveMat);
+  // FIX 9 POIN P2 R3: cuff dirampingkan (r 0.038/0.043, len 0.08 — was
+  // 0.042/0.048, 0.10): di close-up R2 manset hitam raksasa mendominasi
+  // tangan. Lengan penuh yang sesungguhnya datang di poin 3.
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.043, 0.08, 12), gloveMat);
   cuff.rotation.x = Math.PI / 2;
   cuff.position.set(0, 0, -0.085);
   g.add(cuff);
