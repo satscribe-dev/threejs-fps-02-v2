@@ -285,7 +285,17 @@ export class Game {
 
   // ---- effects ----
   spawnFlash(pos, scale = 0.28) {
-    const f = makeFlash(scale);
+    // CELAH 3: cahaya flash musuh 10 MEMBAKAR badan musuh sendiri jadi
+    // putih — PointLight di moncong cuma ~0.5 m dari dada: 10/0.5^2 = 40x
+    // irradiance di atas baju SLATE (0x6b7d8e) + matahari depan (duel) +
+    // bloom = hantu putih. R1 turun ke 1.2 (4.8x di 0.5 m) — hantu hilang,
+    // tapi dada di duel MASIH krem: matahari dusk (3.0, NdotL 0.93 di
+    // dada yang menghadap WSW) sendiri sudah ~2.8x. R2 turun lagi ke 0.6
+    // (2.4x di 0.5 m) — ciuman hangat saja. Bintang + glow sprite tidak
+    // berubah — flash tetap kebaca. (Matahari di dada duel dibiarkan:
+    // seragam yang kena matahari dusk MEMANG terang; ubah staging duel
+    // cuma buat ini = risiko wash R3/R4 terulang.)
+    const f = makeFlash(scale, 0.6);
     f.position.copy(pos);
     this.effects.add(f);
     this._flash = f;
@@ -331,6 +341,9 @@ export class Game {
     this.reseed(20261116);
     this.frozen = true;
     this.effects.clear();
+    // CELAH 3: VM tampil di semua stage KECUALI duel (disembunyikan di
+    // cabang duel di bawah, seperti Kilnyard-2 yang bersih tanpa VM).
+    this.vmScene.visible = true;
     if (this._vmFlash) { this.vmScene.remove(this._vmFlash); this._vmFlash = null; }
     this.state = 'live';
     this.round = 9;
@@ -435,6 +448,11 @@ export class Game {
       for (const b of this.bots) if (b !== t1) b.soldier.group.position.set(30, 0, 30);
       this.hud.hint('Buy time: B opens the requisition menu');
     } else if (name === 'duel') {
+      // CELAH 3: sembunyikan viewmodel di shot duel/arming (Kilnyard-2
+      // bersih tanpa VM — scene + bar arming yang jadi fokus). spawnVmFlash
+      // di bawah tetap jalan tapi tidak kelihatan (flash hidup di vmScene,
+      // dibersihkan pas stage berikutnya masuk).
+      this.vmScene.visible = false;
       // site B: player comes down the EAST lane (x>17, clear of the z=-3
       // container row), enemy guarding the charge, SITE B sign behind-right.
       // R2 put the player at (11,-1.5) — 0.3 m from the stacked container's
