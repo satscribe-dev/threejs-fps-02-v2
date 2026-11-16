@@ -395,12 +395,15 @@ export class Game {
       // sit on the same bearing from the camera (same reason e1's/e2's
       // tracers are 41-45 px vertical stubs). A tracer reads only when its
       // endpoints are at DIFFERENT bearings. So start it at the VM muzzle's
-      // screen position (bottom-right, where the gun is): (0.9,0.9,10.5) is
-      // ~1.9 m from the camera (no R1 wedge — that was distance 0) and
-      // projects to ~(1012,609), at the gun. The tracer then runs ~530 px
-      // diagonally to e1 — Kilnyard-style, like Kilnyard-0's long tracers
-      // from the player's muzzle.
-      this.spawnTracer(new THREE.Vector3(0.9, 0.9, 10.5), new THREE.Vector3(-2.5, 1.35, 5));
+      // screen position: (0.9,0.9,10.5) was ~1.9 m from the camera (no R1
+      // wedge — that was distance 0) and projected to ~(970,610), at the gun.
+      // The tracer then ran ~520 px diagonally to e1 — Kilnyard-style.
+      // FIX STAGE (16 Nov): the VM re-stage moved the muzzle on screen to
+      // (694,458), so the start point moves with it: (0.097,1.278,10.134)
+      // unprojects to (694,458) at 1.9 m (probe-verified). The tracer now
+      // runs ~205 px diagonally to e1 — shorter, but still a clear diagonal,
+      // not a stub.
+      this.spawnTracer(new THREE.Vector3(0.097, 1.278, 10.134), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';

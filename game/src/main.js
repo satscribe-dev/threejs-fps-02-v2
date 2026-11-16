@@ -111,8 +111,18 @@ const vmRifle = buildRifle();
 // FIX ROUND (16 Nov): VM was ~35% of frame width. Moved farther (z -1.0->-1.3),
 // right (x 0.36->0.44) and down (y -0.33->-0.38) so the visible rifle is
 // <=25% wide with the stock cropped by the bottom edge, like Kilnyard-0.
-vmRifle.group.position.set(0.44, -0.38, -1.3);
-vmRifle.group.rotation.set(0.12, -0.03, 0.02);
+// FIX STAGE (16 Nov): the rifle pointed AT the camera (barrel +Z, muzzle 0.96 m
+// from the lens), so on screen it read as a steep ~51 deg diagonal stick with
+// the muzzle off the bottom edge — user: "kocak". CS viewmodels point FORWARD:
+// barrel mostly -Z (away) with a leftward component, foreshortened into a
+// ~28 deg diagonal, muzzle toward the crosshair, stock bottom-right, support
+// hand at frame centre. Probe-verified (node, vmCamera 54 FOV): rotation
+// (0.20,-2.60,0) + z -1.3->-1.5 gives muzzle (694,458), butt (944,593),
+// axis 28.4 deg from horizontal, handguard (766,495). Hands are children of
+// the rifle group, so the grip fix (trigger 0.000-0.007 m, support fingers
+// over the top rail) is preserved unchanged by the re-stage.
+vmRifle.group.position.set(0.44, -0.38, -1.5);
+vmRifle.group.rotation.set(0.20, -2.60, 0);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
 // FIX HAND (16 Nov): the trigger hand DANGLLED below the pistol grip and the
