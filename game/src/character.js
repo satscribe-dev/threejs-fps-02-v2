@@ -16,7 +16,7 @@ const _q2 = new THREE.Quaternion();
 
 export const TEAMS = {
   EMBER: { shirt: 0x8a4a34, pants: 0x5a4a3c, vest: 0x6b5a3a, helmet: 0x5a5a3a, name: 'EMBER' },
-  SLATE: { shirt: 0x4a5a6a, pants: 0x3c4652, vest: 0x3a4448, helmet: 0x3f4a44, name: 'SLATE' },
+  SLATE: { shirt: 0x6b7d8e, pants: 0x4d5a68, vest: 0x4a5458, helmet: 0x55604f, name: 'SLATE' },
 };
 
 function std(color, rough = 0.8, metal = 0) {

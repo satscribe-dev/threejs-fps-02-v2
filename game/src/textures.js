@@ -122,11 +122,11 @@ export function groundTex(seed = 7) {
       const y = (r / rows) * 1024;
       const w = 1024 / cols - 5, h = 1024 / rows - 5;
       const v = 78 + Math.floor(rng() * 42);
-      g.fillStyle = `rgb(${v + 14},${v},${v - 12})`;
+      g.fillStyle = `rgb(${v + 24},${v + 4},${v - 18})`;
       g.beginPath();
       g.roundRect(x + 2, y + 2, w, h, 9);
       g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillStyle = 'rgba(255,255,255,0.09)';
       g.beginPath(); g.roundRect(x + 4, y + 3, w - 6, 10, 5); g.fill();
     }
   }
@@ -262,23 +262,23 @@ export function flashTex() {
   const cx = 64, cy = 64;
   for (let p = 0; p < 8; p++) {
     const a = (p / 8) * Math.PI * 2;
-    const len = p % 2 === 0 ? 62 : 40;
+    const len = p % 2 === 0 ? 78 : 46;
     const grd = g.createLinearGradient(cx, cy, cx + Math.cos(a) * len, cy + Math.sin(a) * len);
     grd.addColorStop(0, 'rgba(255,240,180,1)');
-    grd.addColorStop(0.5, 'rgba(255,170,60,0.85)');
+    grd.addColorStop(0.5, 'rgba(255,180,70,0.9)');
     grd.addColorStop(1, 'rgba(255,120,20,0)');
     g.fillStyle = grd;
     g.beginPath();
     g.moveTo(cx, cy);
-    g.lineTo(cx + Math.cos(a - 0.16) * 10, cy + Math.sin(a - 0.16) * 10);
+    g.lineTo(cx + Math.cos(a - 0.28) * 14, cy + Math.sin(a - 0.28) * 14);
     g.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
-    g.lineTo(cx + Math.cos(a + 0.16) * 10, cy + Math.sin(a + 0.16) * 10);
+    g.lineTo(cx + Math.cos(a + 0.28) * 14, cy + Math.sin(a + 0.28) * 14);
     g.closePath(); g.fill();
   }
-  const core = g.createRadialGradient(cx, cy, 1, cx, cy, 26);
+  const core = g.createRadialGradient(cx, cy, 1, cx, cy, 10);
   core.addColorStop(0, 'rgba(255,255,230,1)');
   core.addColorStop(1, 'rgba(255,200,90,0)');
-  g.fillStyle = core; g.beginPath(); g.arc(cx, cy, 26, 0, Math.PI * 2); g.fill();
+  g.fillStyle = core; g.beginPath(); g.arc(cx, cy, 10, 0, Math.PI * 2); g.fill();
   return tex(c);
 }
 

@@ -86,9 +86,9 @@ export function buildMap(scene, rng) {
 
   // ---- puddles: flat discs that catch the sky (roughness 0.15) ----
   const puddleMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4038, roughness: 0.15, metalness: 0.1, envMapIntensity: 1.6, transparent: true, opacity: 0.88,
+    color: 0x8a7a68, roughness: 0.15, metalness: 0.1, envMapIntensity: 2.0, transparent: true, opacity: 0.75,
   });
-  const puddleSpots = [[-4, 2.5, 1.6], [6, 1.5, 1.2], [-11, -6, 1.4], [9, -8, 1.8], [0, 7, 1.1], [-1, -6.5, 0.9], [13, -1, 1.3]];
+  const puddleSpots = [[-4, 2.5, 1.6], [6, 1.5, 1.2], [-11, -6, 1.4], [9, -8, 1.8], [4, 8.5, 0.8], [-1, -6.5, 0.9], [13, -1, 1.3]];
   for (const [x, z, r] of puddleSpots) {
     const p = new THREE.Mesh(new THREE.CircleGeometry(r, 24), puddleMat);
     p.rotation.x = -Math.PI / 2;
@@ -185,7 +185,7 @@ export function buildMap(scene, rng) {
     head.rotation.x = 0.5;
     g.add(head);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.85, depthWrite: false }));
-    glow.scale.set(2.6, 2.6, 1);
+    glow.scale.set(1.8, 1.8, 1);
     glow.position.set(0, 7.1, 0.3);
     g.add(glow);
     const light = new THREE.PointLight(0xffd9a0, 14, 22, 1.8);
@@ -227,6 +227,8 @@ export function buildMap(scene, rng) {
   crate(7.5, -6.5, 1.0, 0.2); crate(8.5, -6.8, 0.7, 0.5);
   crate(-13, -9, 0.9, 0.1);
   crate(14, 8, 0.8, 0.7);
+  // foreground framing (combat camera sits at z=12): crates left, drums right
+  crate(-3.5, 9.5, 0.9, 0.4); crate(-3.5, 9.5, 0.7, 0.9).position.y = 1.25;
   function pallet(x, z, ry = 0) {
     const g = new THREE.Group();
     for (let i = 0; i < 5; i++) {
@@ -254,6 +256,7 @@ export function buildMap(scene, rng) {
     return d;
   }
   drum(-12.5, 1.5, drumMat); drum(-11.8, 2.1, drumMat2); drum(5, -9.5, drumMat);
+  drum(4.5, 10, drumMat); drum(5.2, 10.4, drumMat2);
   // barricades: wooden A-frames
   function barricade(x, z, ry) {
     const g = new THREE.Group();
@@ -332,6 +335,19 @@ export function buildMap(scene, rng) {
   zone.rotation.x = -Math.PI / 2;
   zone.position.y = 0.02;
   siteB.add(zone);
+  // charge device at Site B too (the duel shot arms the charge here)
+  const chargeB = new THREE.Group();
+  const chargeBBody = chamferBox(0.7, 0.35, 0.5, 0.05, new THREE.MeshStandardMaterial({ color: 0x4a5a3a, metalness: 0.4, roughness: 0.5 }));
+  chargeBBody.position.y = 0.2;
+  chargeB.add(chargeBBody);
+  const chargeBLight = new THREE.Mesh(new THREE.CircleGeometry(0.09, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff5030 }));
+  chargeBLight.rotation.x = -Math.PI / 2;
+  chargeBLight.position.set(0, 0.39, 0);
+  chargeB.add(chargeBLight);
+  chargeB.position.set(-0.5, 0, 1.5);
+  chargeB.scale.setScalar(1.4);
+  siteB.add(chargeB);
   map.add(siteB);
   data.sites.B = siteB;
 

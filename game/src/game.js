@@ -27,7 +27,7 @@ export const BUY_ITEMS = [
   { title: 'GEAR', items: [
     { name: 'Kevlar vest', price: 650, desc: 'Body armour 100', owned: true },
     { name: 'Vest + helmet', price: 1000, desc: 'Armour 100 and a helmet', owned: true },
-    { name: 'Defuse kit', price: 400, desc: 'Defuse in 5 s instead of 10', tooExpensive: true } ] },
+    { name: 'Defuse kit', price: 400, desc: 'Defuse in 5 s instead of 10' } ] },
   { title: 'GRENADES', items: [
     { name: 'Frag', price: 300, desc: 'Blast up to 9 m', owned: true },
     { name: 'Flare', price: 200, desc: 'Blinds whoever faces it', owned: true },
@@ -173,7 +173,7 @@ export class Game {
       const list = team === 'EMBER'
         ? [{ name: 'You', you: true, k: this.playerKills || 10, a: 3, d: 2, hs: 50, dmg: 1049, cash: this.player.cash }]
           .concat(this.teammates.map((b) => ({ name: b.name, k: b.kills, a: b.assists, d: b.deaths, hs: b.hs ? Math.round((b.hs / Math.max(1, b.kills + b.deaths)) * 100) : 44, dmg: b.dmg || 700 + b.kills * 90, cash: b.cash })))
-        : this.enemies.map((b) => ({ name: b.name, k: b.kills, a: b.assists, d: b.deaths, hs: 50, dmg: b.dmg || 600 + b.kills * 80, cash: '—' }));
+        : this.enemies.map((b) => ({ name: b.name, k: b.kills, a: b.assists, d: b.deaths, hs: b.hs ? Math.round((b.hs / Math.max(1, b.kills + b.deaths)) * 100) : 50, dmg: b.dmg || 600 + b.kills * 80, cash: '—' }));
       return list;
     };
     this.hud.showScore(this.score.EMBER, this.score.SLATE, rows('EMBER'), rows('SLATE'), victory);
@@ -284,8 +284,8 @@ export class Game {
   }
 
   // ---- effects ----
-  spawnFlash(pos) {
-    const f = makeFlash(0.15);
+  spawnFlash(pos, scale = 0.28) {
+    const f = makeFlash(scale);
     f.position.copy(pos);
     this.effects.add(f);
     this._flash = f;
@@ -350,25 +350,29 @@ export class Game {
       this.player.x = 0; this.player.z = 12; this.player.yaw = 0.06; this.player.pitch = 0.02;
       const e1 = this.enemies[0]; // Kestrel
       const e2 = this.enemies[1]; // Heron
-      e1.soldier.group.position.set(-2.5, 0, 1.5);
+      e1.soldier.group.position.set(-2.5, 0, 5);
       e1.soldier.group.rotation.y = Math.PI - 0.25;
       e1.soldier.setPose('aim');
-      e2.soldier.group.position.set(3.2, 0, -0.5);
+      e2.soldier.group.position.set(3.2, 0, 3.5);
       e2.soldier.group.rotation.y = Math.PI + 0.3;
       e2.soldier.setPose('aim');
       for (const b of this.enemies.slice(2)) b.soldier.group.position.set(30, 0, 30); // hide the rest
       for (const b of this.teammates) b.soldier.group.position.set(-30, 0, 30);
       // enemy fires: flash + tracer + smoke at its muzzle
+      // (tracer stops 2 m short of the camera — a tracer ending AT the lens
+      // reads as a giant white wedge)
       const mw = new THREE.Vector3();
       e1.soldier.rifle.muzzle.getWorldPosition(mw);
       this.spawnFlash(mw);
       const tgt = new THREE.Vector3(this.player.x, 1.4, this.player.z);
-      this.spawnTracer(mw, tgt);
-      this.spawnSmoke(mw.clone().add(new THREE.Vector3(0, 0.1, 0.4)), new THREE.Vector3(0, 0, 1));
-      // player fires too
+      const edir = tgt.clone().sub(mw).normalize();
+      this.spawnTracer(mw, tgt.clone().addScaledVector(edir, -2));
+      this.spawnSmoke(mw.clone().add(new THREE.Vector3(0, 0.1, -0.2)), new THREE.Vector3(0, 0.2, -0.5));
+      // player fires too (tracer starts 2 m out, never hugging the camera)
       this.spawnVmFlash();
-      const from = new THREE.Vector3(0, 1.55, 12);
-      this.spawnTracer(from, new THREE.Vector3(-2.5, 1.35, 1.5));
+      const pfrom = new THREE.Vector3(0, 1.55, 12);
+      const pdir = new THREE.Vector3(-2.5, 1.35, 5).sub(pfrom).normalize();
+      this.spawnTracer(pfrom.clone().addScaledVector(pdir, 2), new THREE.Vector3(-2.5, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';
@@ -379,6 +383,7 @@ export class Game {
       this.hud.setScore(3, 0, '0:05', 4, 'BUY');
       this.hud.setVitals(100, 100, 4050);
       this.hud.showBuy(4050, BUY_ITEMS);
+      this.hud.radio('Vex: Buy up, we take Site A this round');
       this.player.x = 0; this.player.z = 12; this.player.yaw = 0; this.player.pitch = 0;
       const t1 = this.teammates[0];
       t1.soldier.group.position.set(-3, 0, 6);
@@ -387,11 +392,23 @@ export class Game {
       for (const b of this.bots) if (b !== t1) b.soldier.group.position.set(30, 0, 30);
       this.hud.hint('Buy time: B opens the requisition menu');
     } else if (name === 'duel') {
-      // site B: one enemy at cover aiming, water tower behind-left, player firing
-      this.player.x = 9; this.player.z = 7; this.player.yaw = 0; this.player.pitch = 0;
+      // site B: player comes down the EAST lane (x>17, clear of the z=-3
+      // container row), enemy guarding the charge, SITE B sign behind-right.
+      // R2 put the player at (11,-1.5) — 0.3 m from the stacked container's
+      // side wall, which filled the whole frame with blurry texture.
+      // R5: player WEST of the enemy looking EAST — the sun (WSW) is BEHIND
+      // the camera, so the enemy is front-lit and no wash sits behind him.
+      // R3/R4 looked WSW (59° west of north) straight into the sun (65°) —
+      // the haze sat directly behind the enemy and washed him out; no
+      // disc/haze value can fix a 6° backlight.
+      // R6: closer (6.7 m, enemy ~17%) so the enemy + charge read; the
+      // right container no longer fills a third of the frame.
+      this.player.x = 7; this.player.z = -7; this.player.yaw = 0; this.player.pitch = 0;
       const e = this.enemies[2]; // Lancer
-      e.soldier.group.position.set(2.5, 0, -3.5);
-      e.soldier.group.rotation.y = Math.PI - 0.5;
+      e.soldier.group.position.set(13.5, 0, -8.5);
+      // faces the player (west); rifle points at the camera, flash centred
+      // on the body — readable now because the enemy is front-lit
+      e.soldier.group.rotation.y = -Math.PI / 2;
       e.soldier.setPose('aim');
       for (const b of this.bots) if (b !== e) b.soldier.group.position.set(30, 0, 30);
       // aim the camera at the enemy: yaw so the enemy is centred
@@ -399,11 +416,15 @@ export class Game {
       this.player.yaw = Math.atan2(-dx, -dz);
       const mw = new THREE.Vector3();
       e.soldier.rifle.muzzle.getWorldPosition(mw);
-      this.spawnFlash(mw);
-      this.spawnTracer(mw, new THREE.Vector3(this.player.x, 1.4, this.player.z));
-      this.spawnSmoke(mw.clone(), new THREE.Vector3(0.3, 0.1, 0.8));
+      this.spawnFlash(mw, 0.2); // smaller flash so it does not swallow the enemy
+      const etgt = new THREE.Vector3(this.player.x, 1.4, this.player.z);
+      const edir = etgt.clone().sub(mw).normalize();
+      this.spawnTracer(mw, etgt.clone().addScaledVector(edir, -2));
+      this.spawnSmoke(mw.clone(), new THREE.Vector3(1, 0.1, 0));
       this.spawnVmFlash();
-      this.spawnTracer(new THREE.Vector3(9, 1.55, 7), new THREE.Vector3(2.5, 1.35, -3.5));
+      const dfrom = new THREE.Vector3(7, 1.55, -7);
+      const ddir = new THREE.Vector3(13.5, 1.35, -8.5).sub(dfrom).normalize();
+      this.spawnTracer(dfrom.clone().addScaledVector(ddir, 2), new THREE.Vector3(13.5, 1.35, -8.5));
       this.hud.setPlant(0.55);
       this.hud.radio('Vex: Arming the charge at Site B');
     } else if (name === 'score') {
@@ -413,6 +434,15 @@ export class Game {
       this.player.cash = 3350;
       this.player.x = 0; this.player.z = 12; this.player.yaw = 0; this.player.pitch = 0;
       for (const b of this.bots) b.soldier.group.position.set(30, 0, 30);
+      // deterministic match stats: a 7:5 match cannot end with nine 0-kill
+      // players. Kills balance deaths across teams (EMBER 30 K = SLATE 30 D,
+      // SLATE 20 K = EMBER 20 D). [k, a, d, hs-hits, dmg, cash]
+      const tm = [[6, 2, 4, 5, 890, 950], [4, 1, 5, 4, 720, 700], [7, 3, 3, 6, 1100, 1200], [3, 0, 6, 3, 540, 650]];
+      this.teammates.forEach((b, i) => { const s = tm[i]; b.kills = s[0]; b.assists = s[1]; b.deaths = s[2]; b.hs = s[3]; b.dmg = s[4]; b.cash = s[5]; });
+      const en = [[6, 1, 5, 5, 980], [4, 3, 6, 4, 760], [5, 2, 4, 4, 890], [3, 1, 7, 3, 610], [2, 0, 8, 2, 420]];
+      this.enemies.forEach((b, i) => { const s = en[i]; b.kills = s[0]; b.assists = s[1]; b.deaths = s[2]; b.hs = s[3]; b.dmg = s[4]; });
+      this.hud.setVitals(76, 85, 3350);
+      this.hud.radio('Vex: Match point taken. Cinderline is ours.');
       this.showScoreboard(true);
       this.hud.setScore(7, 5, 'END', 12);
     }

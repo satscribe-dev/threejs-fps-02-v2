@@ -70,6 +70,16 @@ export function corrugatedPanel(len, height, mat, opts = {}) {
   s.lineTo(x0, y0);
   const geo = new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false, steps: 1 });
   geo.translate(0, 0, -0.025);
+  // ExtrudeGeometry UVs are raw shape coords (0..len) — a 12 m panel would
+  // tile the texture ~12x (wallpaper). Remap to 0..1 across the panel so the
+  // serial/CSC print once, like a real container side.
+  {
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      uv.setXY(i, (pos.getX(i) + len / 2) / len, (pos.getY(i) + height / 2) / height);
+    }
+  }
   geo.computeVertexNormals();
   return new THREE.Mesh(geo, mat);
 }

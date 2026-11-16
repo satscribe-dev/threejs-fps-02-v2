@@ -5,9 +5,9 @@ import { chamferBox, box, lathe, capsule, ball } from './geom.js';
 import { flashTex, smokeTex } from './textures.js';
 
 export const MAT = {
-  steel: new THREE.MeshStandardMaterial({ color: 0x2b2d30, metalness: 0.9, roughness: 0.4 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0x3a3d40, metalness: 0.9, roughness: 0.4 }),
   steelDark: new THREE.MeshStandardMaterial({ color: 0x1c1e20, metalness: 0.85, roughness: 0.45 }),
-  polymer: new THREE.MeshStandardMaterial({ color: 0x23211f, metalness: 0.0, roughness: 0.8 }),
+  polymer: new THREE.MeshStandardMaterial({ color: 0x2e2a26, metalness: 0.0, roughness: 0.8 }),
   wood: new THREE.MeshStandardMaterial({ color: 0x5e3d22, metalness: 0.0, roughness: 0.7 }),
   brass: new THREE.MeshStandardMaterial({ color: 0x8a6d3b, metalness: 0.9, roughness: 0.35 }),
   lens: new THREE.MeshStandardMaterial({ color: 0x2a3a48, metalness: 0.4, roughness: 0.15, envMapIntensity: 1.4 }),
@@ -68,7 +68,7 @@ export function buildRifle(opts = {}) {
   const rail = box(0.04, 0.012, 0.30, MAT.steelDark);
   add(rail, 0, 0.043, 0.05);
   for (let i = 0; i < 12; i++) {
-    add(box(0.042, 0.006, 0.008, MAT.steel), 0, 0.051, -0.08 + i * 0.024);
+    add(box(0.042, 0.006, 0.008, MAT.steelDark), 0, 0.051, -0.08 + i * 0.024);
   }
   // 16. charging handle
   add(box(0.05, 0.012, 0.02, MAT.steelDark), 0, 0.038, -0.155);
@@ -163,6 +163,10 @@ export function buildHand(glove = 0x4a4438, skin = 0x8a6f56) {
 }
 
 // ---- muzzle flash: petal-star sprite + point light, frozen at peak ----
+// The star is 8 kite QUADS (geometry, hard edges) over a soft glow sprite:
+// a sprite-texture star alone never survived bloom+JPEG at 7 m — its thin
+// petals washed into a ball in every round (R4-R6). Quads keep full opacity
+// and hard points, so they read at distance.
 let _flashTex = null;
 export function makeFlash(scale = 0.15) {
   if (!_flashTex) _flashTex = flashTex();
@@ -172,8 +176,29 @@ export function makeFlash(scale = 0.15) {
     blending: THREE.AdditiveBlending, opacity: 0.95,
   });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(scale * 2.2, scale * 2.2, 1);
+  sprite.scale.set(scale * 2.8, scale * 2.8, 1);
   group.add(sprite);
+  // 8 kite petals: long even, short odd — the star points
+  const petalMat = new THREE.MeshBasicMaterial({
+    color: 0xffb050, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+    side: THREE.DoubleSide, fog: false,
+  });
+  const r = scale * 2.8; // sprite half-size: petals span the same disc
+  for (let p = 0; p < 8; p++) {
+    const a = (p / 8) * Math.PI * 2;
+    const len = (p % 2 === 0 ? 0.55 : 0.36) * r;
+    const w = 0.075 * r;
+    const s = new THREE.Shape();
+    s.moveTo(Math.cos(a - 0.3) * w, Math.sin(a - 0.3) * w);
+    s.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+    s.lineTo(Math.cos(a + 0.3) * w, Math.sin(a + 0.3) * w);
+    s.lineTo(0, 0);
+    s.closePath();
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(s), petalMat);
+    m.position.z = 0.002;
+    group.add(m);
+  }
   const light = new THREE.PointLight(0xffc060, 10, 5, 2);
   group.add(light);
   return group;
@@ -183,7 +208,7 @@ export function makeFlash(scale = 0.15) {
 export function makeTracer(from, to, opacity = 0.5) {
   const dir = new THREE.Vector3().subVectors(to, from);
   const len = dir.length();
-  const geo = new THREE.CylinderGeometry(0.006, 0.006, len, 6, 1, true);
+  const geo = new THREE.CylinderGeometry(0.004, 0.004, len, 6, 1, true);
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffe8b0, transparent: true, opacity,
     blending: THREE.AdditiveBlending, depthWrite: false,
@@ -205,7 +230,7 @@ export function makeSmoke(origin, dir, count = 5, seed = 3) {
   const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
   for (let i = 0; i < count; i++) {
     const mat = new THREE.SpriteMaterial({
-      map: _smokeTex, transparent: true, opacity: 0.42 + rnd() * 0.22,
+      map: _smokeTex, transparent: true, opacity: 0.45 + rnd() * 0.15,
       depthWrite: false, color: 0xe8ded2,
     });
     const sp = new THREE.Sprite(mat);
@@ -213,7 +238,7 @@ export function makeSmoke(origin, dir, count = 5, seed = 3) {
     sp.position.copy(origin).addScaledVector(dir, d);
     sp.position.x += (rnd() - 0.5) * 0.25;
     sp.position.y += (rnd() - 0.5) * 0.2 + i * 0.03;
-    const sc = 0.35 + i * 0.12 + rnd() * 0.15;
+    const sc = 0.42 + i * 0.12 + rnd() * 0.15;
     sp.scale.set(sc, sc, 1);
     group.add(sp);
   }

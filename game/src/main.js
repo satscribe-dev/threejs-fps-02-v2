@@ -37,7 +37,7 @@ function makeSky() {
       top: { value: new THREE.Color(0x2a1e3a) },
       mid: { value: new THREE.Color(0x8a4a3a) },
       horizon: { value: new THREE.Color(0xe07848) },
-      sunDir: { value: new THREE.Vector3(0.45, 0.16, -0.75).normalize() },
+      sunDir: { value: new THREE.Vector3(-0.9, 0.14, -0.35).normalize() },
     },
     vertexShader: `varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
@@ -46,8 +46,8 @@ function makeSky() {
         float h = clamp(vDir.y, -0.08, 1.0);
         vec3 col = h < 0.18 ? mix(horizon, mid, smoothstep(0.0, 0.18, h)) : mix(mid, top, smoothstep(0.18, 0.65, h));
         float s = max(dot(normalize(vDir), sunDir), 0.0);
-        col += vec3(1.0, 0.55, 0.25) * pow(s, 90.0) * 2.2;   // sun disc
-        col += vec3(1.0, 0.45, 0.18) * pow(s, 6.0) * 0.35;   // haze around the sun
+        col += vec3(1.0, 0.55, 0.25) * pow(s, 90.0) * 0.4;   // sun disc
+        col += vec3(1.0, 0.45, 0.18) * pow(s, 6.0) * 0.03;   // haze around the sun
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -79,10 +79,15 @@ scene.add(sky);
 }
 
 // ---- lights: low warm sun + hemisphere fill + cool rim (proven position) ----
-const sun = new THREE.DirectionalLight(0xffb070, 3.5);
-sun.position.set(16, 6, -27);
+const sun = new THREE.DirectionalLight(0xffb070, 3.0);
+sun.position.set(-36, 5.6, -14);
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x8a6a9a, 0x4a3628, 0.55));
+scene.add(new THREE.HemisphereLight(0x8a6a9a, 0x4a3628, 0.7));
+// camera fill: warm light from behind the player so faces/fronts that turn
+// away from the low sun stay readable instead of going black
+const fill = new THREE.DirectionalLight(0xffd0a0, 0.45);
+fill.position.set(0, 5, 25);
+scene.add(fill);
 const rim = new THREE.DirectionalLight(0x8a9ac0, 0.4);
 rim.position.set(-14, 8, 2);
 scene.add(rim);
@@ -93,14 +98,18 @@ scene.add(camera);
 
 // ---- second camera: the viewmodel (FOV 54, its own scene) ----
 const vmScene = new THREE.Scene();
+vmScene.environment = scene.environment; // metals need an env map or they go black
 const vmCamera = new THREE.PerspectiveCamera(54, innerWidth / innerHeight, 0.01, 3);
 vmScene.add(new THREE.AmbientLight(0xffffff, 0.7));
 const vmLight = new THREE.DirectionalLight(0xffe0b0, 1.5);
 vmLight.position.set(0.4, 0.8, 0.6);
 vmScene.add(vmLight);
+const vmFill = new THREE.DirectionalLight(0xfff0d0, 0.7);
+vmFill.position.set(-0.5, 0.2, -0.8);
+vmScene.add(vmFill);
 const vmRifle = buildRifle();
-vmRifle.group.position.set(0.30, -0.27, -0.85);
-vmRifle.group.rotation.set(0.06, -0.12, 0.02);
+vmRifle.group.position.set(0.36, -0.33, -1.0);
+vmRifle.group.rotation.set(0.12, -0.03, 0.02);
 vmScene.add(vmRifle.group);
 // viewmodel hands on the sockets (children of the rifle, so they move with it)
 const vmHandR = buildHand(0x4a4438);
@@ -109,7 +118,7 @@ vmHandR.group.rotation.set(0.5, 0, -0.35);
 vmRifle.group.add(vmHandR.group);
 const vmHandL = buildHand(0x4a4438);
 vmHandL.group.position.copy(vmRifle.supportSocket.position);
-vmHandL.group.rotation.set(0.35, Math.PI, 0.25);
+vmHandL.group.rotation.set(0.85, Math.PI, 0.25);
 vmRifle.group.add(vmHandL.group);
 // viewmodel muzzle, for the flash
 const vmMuzzle = new THREE.Object3D();
