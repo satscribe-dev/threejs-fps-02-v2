@@ -369,10 +369,10 @@ export class Game {
 
     if (name === 'combat') {
       // camera mid-yard, two enemies mid-frame, player firing
-      this.player.x = 0; this.player.z = 12; this.player.yaw = 0.06; this.player.pitch = 0.02;
+      this.player.x = 0; this.player.z = 12; this.player.yaw = 0.06; this.player.pitch = -0.04; // AIM R1: pitch 0.02->-0.04 — crosshair turun ke dada musuh (1.35 m): sinar kamera di z=5 ada di y 1.62+7.013*tan(p); p=-0.04 -> y 1.34 (dada). Pitch +0.02 bikin sinar selalu di atas dada (y 1.76 di z=5), jadi crosshair tidak pernah bisa nempel di dada.
       const e1 = this.enemies[0]; // Kestrel
       const e2 = this.enemies[1]; // Heron
-      e1.soldier.group.position.set(-2.5, 0, 5);
+      e1.soldier.group.position.set(-0.42, 0, 5); // AIM R1: e1 (-2.5,5)->(-0.42,5) — tepat di sinar yaw kamera (x -0.42 di z=5, cos(p) saling hapus jadi tidak tergantung pitch). Crosshair kini nempel di dada e1; tracer moncong->e1 lewat crosshair. Bukan "geser ke tengah kosong": e1 tetap di lajur tengah yang sama (z=5), cuma 2 m ke kanan, di jalan utama tempat musuh maju.
       e1.soldier.group.rotation.y = Math.PI - 0.25;
       e1.soldier.setPose('aim');
       e2.soldier.group.position.set(3.2, 0, 3.5);
@@ -428,11 +428,12 @@ export class Game {
       // (670,390)) — titik awal tracer ikut pindah: (0.133,1.380,10.120)
       // unproject ke (703,431) di 1,9 m (probe-verifikasi /tmp/vmprobe.mjs —
       // metode yang sama menghasilkan nilai baseline lama persis).
-      // POPOR R1 (16 Nov): VM geser kanan+bawah (moncong kini (741,440))
-      // — titik awal tracer ikut pindah: (0.277,1.350,10.140) unproject
-      // ke (741,440) di 1,9 m (metode sama, validasi nilai lama persis
-      // di /tmp/tracer-recompute.mjs).
-      this.spawnTracer(new THREE.Vector3(0.277, 1.350, 10.140), new THREE.Vector3(-2.5, 1.35, 5));
+      // AIM R1 (16 Nov): crosshair HARUS di musuh yang ditembak + tracer
+      // lewat crosshair ke musuh itu (Kilnyard). Target pindah ke dada e1
+      // yang baru (-0.42,1.35,5); titik awal dihitung ulang untuk pitch
+      // -0.04: (0.278,1.240,10.159) unproject ke moncong (741,440) di
+      // 1,9 m (metode sama, validasi nilai lama persis).
+      this.spawnTracer(new THREE.Vector3(0.278, 1.240, 10.159), new THREE.Vector3(-0.42, 1.35, 5));
       this.hud.setScore(3, 5, '1:20', 9);
     } else if (name === 'buy') {
       this.state = 'buy';
