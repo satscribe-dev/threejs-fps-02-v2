@@ -3,7 +3,7 @@
 // locking rods; the ground is wet cobble; every 10x10 m cell holds a prop, decal or light.
 import * as THREE from 'three';
 import { box, chamferBox, tube, corrugatedPanel, ball, blobShadow } from './geom.js';
-import { containerSideTex, containerDoorTex, groundTex, groundRoughTex, brickTex, woodTex, signTex, softDiscTex } from './textures.js';
+import { containerSideTex, containerDoorTex, groundTex, groundRoughTex, groundBumpTex, crackDecalTex, oilDecalTex, tireDecalTex, gravelDecalTex, markingDecalTex, brickTex, woodTex, signTex, softDiscTex } from './textures.js';
 import { mulberry32 } from './textures.js';
 
 const CONTAINERS = [
@@ -72,17 +72,58 @@ export function buildMap(scene, rng) {
   const data = { containers: [], walls: [], puddles: [], sites: {} };
 
   // ---- ground: wet cobble ----
+  // FIX 9 POIN P6: repeat 4x3 -> 8x6 (batu ~0.31 m, bukan ~1 m) + bumpMap
+  // (relief batu dari groundBumpTex). Roughness map sudah disederhanakan
+  // (variasi lembap skala besar saja; noda kecil pindah ke decal).
   const gTex = groundTex(7);
-  gTex.repeat.set(4, 3);
+  gTex.repeat.set(8, 6);
   const gRough = groundRoughTex(7);
-  gRough.repeat.set(4, 3);
+  gRough.repeat.set(8, 6);
+  const gBump = groundBumpTex(7);
+  gBump.repeat.set(8, 6);
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(70, 50),
-    new THREE.MeshStandardMaterial({ map: gTex, roughnessMap: gRough, roughness: 1.0, metalness: 0.05 }),
+    new THREE.MeshStandardMaterial({ map: gTex, roughnessMap: gRough, bumpMap: gBump, bumpScale: 0.03, roughness: 1.0, metalness: 0.05 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   map.add(ground);
+
+  // ---- floor DECALS (P6): large-scale yard features as separate planes ----
+  // Retakan / noda minyak / bekas ban / kerikil / marka jalan — ditaruh di
+  // posisi dunia tertentu, BUKAN di-tile, supaya tidak berulang tiap 8,75 m.
+  // polygonOffset + y bertingkat (0.015-0.03) cegah z-fighting antar decal.
+  function addDecal(texFn, seed, x, z, w, d, rotY = 0, y = 0.015) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, d),
+      new THREE.MeshStandardMaterial({ map: texFn(seed), transparent: true, roughness: 0.9, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, depthWrite: false }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.rotation.z = rotY;
+    m.position.set(x, y, z);
+    m.receiveShadow = true;
+    map.add(m);
+  }
+  // tire marks along the main lane (combat camera looks down this lane)
+  addDecal(tireDecalTex, 23, 0, 4, 8, 4, 0, 0.015);
+  addDecal(tireDecalTex, 33, -6, -6, 7, 3.5, 0.6, 0.018);
+  // oil stains: under the drums (left) + near the containers (right)
+  addDecal(oilDecalTex, 22, -15, -6, 3, 3, 0, 0.02);
+  addDecal(oilDecalTex, 32, 4, -8, 2.5, 2.5, 0, 0.022);
+  addDecal(oilDecalTex, 42, 8, 6, 2, 2, 0, 0.024);
+  // cracks: scattered across the yard (posisi dijauhi dari genangan supaya
+  // decal tidak menimpa puddle: puddle di (-1,-6.5) dan (13,-1))
+  addDecal(crackDecalTex, 21, -8, 6, 3, 3, 0, 0.026);
+  addDecal(crackDecalTex, 31, 8, 4, 2.5, 2.5, 0.9, 0.028);
+  addDecal(crackDecalTex, 41, -4, -9, 3, 3, 0.4, 0.03);
+  addDecal(crackDecalTex, 51, 12, -4, 2, 2, 1.2, 0.032);
+  // gravel patches: near the pallets / crates (dijauhi dari puddle (4,8.5))
+  addDecal(gravelDecalTex, 24, 8, 9, 3.5, 3.5, 0, 0.034);
+  addDecal(gravelDecalTex, 34, -12, 2, 3, 3, 0, 0.036);
+  // faded lane markings: dashed centre line down the main lane
+  addDecal(markingDecalTex, 25, 0, 8, 1.2, 2.4, 0, 0.038);
+  addDecal(markingDecalTex, 35, 0, 2, 1.2, 2.4, 0, 0.04);
+  addDecal(markingDecalTex, 45, 0, -4, 1.2, 2.4, 0, 0.042);
 
   // ---- puddles: flat discs that catch the sky (roughness 0.15) ----
   const puddleMat = new THREE.MeshStandardMaterial({

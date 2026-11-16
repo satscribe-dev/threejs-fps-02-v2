@@ -109,86 +109,165 @@ export function containerDoorTex(o) {
   return tex(c);
 }
 
-// ---- cobble ground: stones + cracks + oil + tire marks ----
+// ---- cobble ground: stones ONLY (cracks/oil/tire moved to DECALS, P6) ----
+// FIX 9 POIN P6: batu terlalu BESAR + terlalu seragam — di R0 close-up,
+// batu ~1 m kayak cokelat batangan, nol variasi. Sekarang 28x28 batu per
+// tile (was 16x16) + variasi warna LEBIH LEBAR (v 60-140, was 78-120) +
+// highlight atas + bayangan bawah per batu (relief tanpa normal map).
+// Repeat dinaikkan di map.js (8x6) -> batu ~0.31 m, mendekati cobble asli.
 export function groundTex(seed = 7) {
   const [c, g] = canvas(1024, 1024);
   const rng = mulberry32(seed);
-  g.fillStyle = '#6a5c4c'; g.fillRect(0, 0, 1024, 1024);
+  g.fillStyle = '#55483a'; g.fillRect(0, 0, 1024, 1024); // mortar (gap) — R2: lebih terang, grid tidak terlalu keras
   // cobble stones: staggered rows of rounded rects
-  const rows = 16, cols = 16;
+  // FIX 9 POIN P6 R2: tiap batu punya JITTER posisi + ukuran (was grid
+  // sempurna — semua batu sama besar, baris/kolom sejajar, kelihatan
+  // mesin-stempel). 5 rng() per batu, urutan SAMA di groundBumpTex supaya
+  // bump sejajar dengan warna: v, xoff, yoff, wvar, hvar.
+  const rows = 28, cols = 28;
   for (let r = 0; r < rows; r++) {
     for (let col = -1; col < cols; col++) {
-      const x = ((col + (r % 2) * 0.5) / cols) * 1024;
-      const y = (r / rows) * 1024;
-      const w = 1024 / cols - 5, h = 1024 / rows - 5;
-      const v = 78 + Math.floor(rng() * 42);
+      const v = 60 + Math.floor(rng() * 80);
+      const xoff = (rng() - 0.5) * 5, yoff = (rng() - 0.5) * 5;
+      const wvar = (rng() - 0.5) * 6, hvar = (rng() - 0.5) * 6;
+      const x = ((col + (r % 2) * 0.5) / cols) * 1024 + xoff;
+      const y = (r / rows) * 1024 + yoff;
+      const w = 1024 / cols - 4 + wvar, h = 1024 / rows - 4 + hvar;
       g.fillStyle = `rgb(${v + 24},${v + 4},${v - 18})`;
       g.beginPath();
-      g.roundRect(x + 2, y + 2, w, h, 9);
+      g.roundRect(x + 2, y + 2, w, h, 6);
       g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.09)';
-      g.beginPath(); g.roundRect(x + 4, y + 3, w - 6, 10, 5); g.fill();
+      // top highlight + bottom shadow: batu punya relief
+      g.fillStyle = 'rgba(255,255,255,0.10)';
+      g.beginPath(); g.roundRect(x + 3, y + 3, w - 6, 7, 3); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      g.beginPath(); g.roundRect(x + 3, y + h - 9, w - 6, 7, 3); g.fill();
     }
-  }
-  // cracks: dark jagged polylines
-  g.strokeStyle = 'rgba(30,22,16,0.55)'; g.lineWidth = 2.5;
-  for (let i = 0; i < 14; i++) {
-    g.beginPath();
-    let x = rng() * 1024, y = rng() * 1024;
-    g.moveTo(x, y);
-    for (let s = 0; s < 7; s++) { x += (rng() - 0.5) * 120; y += (rng() - 0.5) * 120; g.lineTo(x, y); }
-    g.stroke();
-  }
-  // oil stains: dark soft blobs
-  for (let i = 0; i < 9; i++) {
-    const x = rng() * 1024, y = rng() * 1024, r = 26 + rng() * 60;
-    const grd = g.createRadialGradient(x, y, 2, x, y, r);
-    grd.addColorStop(0, 'rgba(18,14,10,0.6)');
-    grd.addColorStop(1, 'rgba(18,14,10,0)');
-    g.fillStyle = grd;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  }
-  // tire marks: two parallel dark arcs
-  for (let i = 0; i < 5; i++) {
-    const x = rng() * 1024, y = rng() * 1024, r = 120 + rng() * 160, a0 = rng() * Math.PI;
-    g.strokeStyle = 'rgba(20,16,12,0.35)'; g.lineWidth = 9 + rng() * 6;
-    g.beginPath(); g.arc(x, y, r, a0, a0 + 0.9 + rng() * 0.8); g.stroke();
-    g.beginPath(); g.arc(x, y, r + 26, a0, a0 + 0.9 + rng() * 0.8); g.stroke();
   }
   const t = tex(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
 
-// roughness map for the ground: mid grey = dry, dark = wet/smooth (puddles + oil)
+// ---- cobble height map (bumpMap): stones raised, gaps recessed ----
+// Layout SAMA PERSIS dengan groundTex (seed + loop sama, 1 rng() per batu)
+// supaya bump sejajar dengan warna. Dipakai sebagai bumpMap di map.js.
+export function groundBumpTex(seed = 7) {
+  const [c, g] = canvas(512, 512);
+  const rng = mulberry32(seed);
+  g.fillStyle = '#282828'; g.fillRect(0, 0, 512, 512); // gap = rendah
+  // Jitter SAMA seperti groundTex (5 rng() per batu, urutan sama) supaya
+  // bump sejajar dengan warna.
+  const rows = 28, cols = 28;
+  for (let r = 0; r < rows; r++) {
+    for (let col = -1; col < cols; col++) {
+      const v = 60 + Math.floor(rng() * 80);
+      const xoff = (rng() - 0.5) * 5, yoff = (rng() - 0.5) * 5;
+      const wvar = (rng() - 0.5) * 6, hvar = (rng() - 0.5) * 6;
+      const x = ((col + (r % 2) * 0.5) / cols) * 512 + xoff / 2;
+      const y = (r / rows) * 512 + yoff / 2;
+      const w = 512 / cols - 2 + wvar / 2, h = 512 / rows - 2 + hvar / 2;
+      const hv = 150 + Math.floor((v - 60) / 80 * 60); // batu = tinggi (150-210)
+      g.fillStyle = `rgb(${hv},${hv},${hv})`;
+      g.beginPath();
+      g.roundRect(x + 1, y + 1, w, h, 3);
+      g.fill();
+    }
+  }
+  const t = tex(c, false);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// roughness map for the ground: mid grey = dry, dark = wet/smooth
+// FIX 9 POIN P6: noda air/minyak kecil DIHAPUS dari sini — repeat naik ke
+// 8x6, noda kecil bakal berulang tiap 8,75 m (kelihatan tiling). Yang
+// tersisa: variasi lembap skala BESAR (halo lembut). Air berdiri + minyak
+// sekarang decal/puddle terpisah di map.js.
 export function groundRoughTex(seed = 7) {
   const [c, g] = canvas(512, 512);
   const rng = mulberry32(seed);
   g.fillStyle = '#b4b4b4'; g.fillRect(0, 0, 512, 512); // dry ~0.7
-  for (let i = 0; i < 26; i++) { // damp halos
-    const x = rng() * 512, y = rng() * 512, r = 30 + rng() * 70;
+  for (let i = 0; i < 10; i++) { // damp halos (large-scale only)
+    const x = rng() * 512, y = rng() * 512, r = 60 + rng() * 120;
     const grd = g.createRadialGradient(x, y, 2, x, y, r);
-    grd.addColorStop(0, 'rgba(90,90,90,0.7)');
+    grd.addColorStop(0, 'rgba(90,90,90,0.5)');
     grd.addColorStop(1, 'rgba(90,90,90,0)');
-    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  }
-  for (let i = 0; i < 8; i++) { // standing water: very smooth
-    const x = rng() * 512, y = rng() * 512, r = 18 + rng() * 34;
-    const grd = g.createRadialGradient(x, y, 2, x, y, r);
-    grd.addColorStop(0, 'rgba(40,40,40,0.95)');
-    grd.addColorStop(1, 'rgba(40,40,40,0)');
-    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  }
-  for (let i = 0; i < 9; i++) { // oil: mid-dark, NOT mirror (lesson: #606060 not #303030)
-    const x = rng() * 512, y = rng() * 512, r = 14 + rng() * 30;
-    const grd = g.createRadialGradient(x, y, 2, x, y, r);
-    grd.addColorStop(0, 'rgba(96,96,96,0.8)');
-    grd.addColorStop(1, 'rgba(96,96,96,0)');
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
   }
   const t = tex(c, false);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
+}
+
+// ---- floor DECALS (P6): large-scale yard features as separate planes ----
+// Dipakai di map.js sebagai plane transparan di posisi dunia tertentu
+// (bukan di-tile bareng cobble) — jadi retakan/noda/bekas ban tidak
+// berulang tiap 8,75 m.
+export function crackDecalTex(seed = 21) {
+  const [c, g] = canvas(256, 256);
+  const rng = mulberry32(seed);
+  g.strokeStyle = 'rgba(28,20,14,0.6)'; g.lineWidth = 2.5;
+  for (let i = 0; i < 3; i++) {
+    g.beginPath();
+    let x = 30 + rng() * 196, y = 30 + rng() * 196;
+    g.moveTo(x, y);
+    for (let s = 0; s < 8; s++) { x += (rng() - 0.5) * 90; y += (rng() - 0.5) * 90; g.lineTo(x, y); }
+    g.stroke();
+  }
+  return tex(c);
+}
+export function oilDecalTex(seed = 22) {
+  const [c, g] = canvas(256, 256);
+  const rng = mulberry32(seed);
+  for (let i = 0; i < 3; i++) {
+    const x = 60 + rng() * 136, y = 60 + rng() * 136, r = 30 + rng() * 55;
+    const grd = g.createRadialGradient(x, y, 2, x, y, r);
+    grd.addColorStop(0, 'rgba(16,12,9,0.65)');
+    grd.addColorStop(1, 'rgba(16,12,9,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  return tex(c);
+}
+export function tireDecalTex(seed = 23) {
+  const [c, g] = canvas(512, 256);
+  const rng = mulberry32(seed);
+  for (let i = 0; i < 2; i++) {
+    const x = rng() * 512, y = rng() * 256, r = 140 + rng() * 180, a0 = rng() * Math.PI;
+    g.strokeStyle = 'rgba(20,16,12,0.5)'; g.lineWidth = 12 + rng() * 6; // R2: lebih gelap + tebal (was 0.4 / 10+6)
+    g.beginPath(); g.arc(x, y, r, a0, a0 + 0.8 + rng() * 0.7); g.stroke();
+    g.beginPath(); g.arc(x, y, r + 28, a0, a0 + 0.8 + rng() * 0.7); g.stroke();
+  }
+  return tex(c);
+}
+export function gravelDecalTex(seed = 24) {
+  const [c, g] = canvas(256, 256);
+  const rng = mulberry32(seed);
+  for (let i = 0; i < 420; i++) {
+    const v = 90 + Math.floor(rng() * 90);
+    g.fillStyle = `rgba(${v + 20},${v},${v - 20},${0.5 + rng() * 0.5})`;
+    g.beginPath();
+    g.arc(rng() * 256, rng() * 256, 1.5 + rng() * 3.5, 0, Math.PI * 2);
+    g.fill();
+  }
+  return tex(c);
+}
+export function markingDecalTex(seed = 25) {
+  // faded painted lane line (yellow) — worn, not a solid bar
+  // R2: alpha 0.75 -> 0.5 + lebih banyak wear (was garis kuning segar)
+  const [c, g] = canvas(256, 256);
+  const rng = mulberry32(seed);
+  g.fillStyle = 'rgba(210,170,60,0.5)';
+  g.fillRect(108, 8, 40, 240);
+  // wear: erase random scratches over the paint
+  g.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 140; i++) {
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    g.fillRect(100 + rng() * 56, rng() * 256, 2 + rng() * 8, 2 + rng() * 20);
+  }
+  g.globalCompositeOperation = 'source-over';
+  return tex(c);
 }
 
 // ---- brick wall with stains ----
